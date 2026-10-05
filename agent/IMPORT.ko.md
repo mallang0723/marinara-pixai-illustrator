@@ -16,11 +16,17 @@
 
 ## 설정과 범위
 
-- 동봉된 `../agent-prompt.txt`와 동일한 내용을 JSON 문자열에 담았습니다. 출력은 `PIXAI_PROMPT`, `PIXAI_NEGATIVE`, `PIXAI_RATIO` 또는 `SKIP`입니다. 0.1.1에서 비율 9종과 필드별 2,000자 제한 안내를 통일했습니다.
+- 동봉된 `../agent-prompt.txt`와 동일한 내용을 JSON 문자열에 담았습니다. 출력은 `PIXAI_PROMPT`, `PIXAI_NEGATIVE`, `PIXAI_RATIO`, 선택 줄 `PIXAI_CHARACTERS`(JSON 이름 배열)·`PIXAI_PERSONA` 또는 `SKIP`입니다. 0.1.1에서 비율 9종과 필드별 2,000자 제한 안내를 통일했습니다.
 - `phase: post_processing`, `resultType: context_injection`, `injectAsSection: false`를 명시했습니다.
 - 현재 로컬 스키마의 15개 능력을 모두 false로 지정했습니다. `enabledTools`는 빈 배열이며 실제 import 정규화 과정에서 제거됩니다. 다른 단계의 결과 읽기도 껐습니다.
 - 프롬프트의 캐릭터 외형 지침을 지원하도록 읽기용 컨텍스트는 `chatHistory`, `characters`만 켰습니다. 이 설정은 privileged abilities와 별개이며 나머지 컨텍스트 소스는 껐습니다.
 - API 연결 ID, 이미지 경로, PixAI 키, 실행 코드 및 함수 정의를 포함하지 않습니다. 별도 확장 없이 이 Agent 자체는 이미지를 생성하지 않습니다. 채팅에서 실행하면 선택된 AI 연결에 일반적인 LLM 요청은 발생할 수 있습니다.
+
+## 0.2.0 교체와 페르소나
+
+구 JSON도 유지할 수 있습니다. 선택 줄이 없으면 한 명 채팅에서만 프로필을 적용하며 다인 채팅은 전역 설정과 구 장면을 사용합니다. 새 JSON을 가져오면 별도 에이전트가 생기므로 기존/신규 중 사용할 하나만 남기세요. 확장은 자동으로 삭제·수정하지 않습니다. 수동 셀피에는 Director가 필요 없습니다.
+
+기본 `contextSources.persona`는 false입니다. 2인 장면에 persona 외모를 쓰려면 Agents의 persona context와 확장 외모 옵션을 사용자가 각각 설정하고, 출력이 실제 등장 `PIXAI_PERSONA:true`여야 합니다. Director ON은 전체 컨텍스트를 LLM으로 전송할 수 있습니다. 확장 OFF는 이 전송을 취소하거나 이미 prompt에 포함된 자료를 제거하지 않습니다. 패널 프로필 읽기에서 두 상태와 안내를 확인하세요. 새 JSON도 schema version 1, functions 빈 목록, 모든 도구/능력 OFF를 유지합니다.
 
 ## 오프라인 검증
 
@@ -52,3 +58,4 @@ node agent/validate-agent.mjs /path/to/Marinara-Engine
 | 2026-10-02 | 수동 Agent 패키지·검증 안내 (유지관리자) |
 | 2026-10-02 | 비율·길이 안내 갱신 |
 | 2026-10-05 | v0.1.2 실사용 성공 보고 반영 |
+| 2026-10-05 | 0.2.0 선택 줄·중복 교체·persona 두 개인정보 경계 안내 |

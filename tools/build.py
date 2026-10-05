@@ -13,11 +13,13 @@ assert manifest["kind"] == "marinara.personal-extension"
 assert manifest["config"]["capabilities"] == ["full_page_access"]
 assert manifest["config"]["runtime"] == "client"
 version = manifest["config"]["version"]
-assert version == "0.1.4"
+assert version == "0.2.0"
 source = (ROOT / manifest["config"]["jsPath"]).read_text(encoding="utf-8")
 subprocess.run(["node", "--check"], input=f"(async (marinara) => {{\n{source}\n}});\n", text=True, check=True)
 assert (ROOT / manifest["config"]["cssPath"]).is_file()
 files = [ROOT / name for name in ["manifest.json", "extension.js", "extension.css", "agent-prompt.txt", "README.md", "CHANGELOG.md", "THIRD_PARTY_NOTICES.md", "LICENSE"]]
+# The implementation report contains dist hashes, so stays outside the ZIP to avoid a self-referential hash.
+files.append(ROOT / "docs/DESIGN-0.2.0.md")
 for folder in ["agent", "test", "tools"]:
     files.extend(p for p in (ROOT / folder).rglob("*") if p.is_file() and "__pycache__" not in p.parts)
 for p in files:
