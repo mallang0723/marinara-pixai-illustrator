@@ -13,7 +13,7 @@ assert manifest["kind"] == "marinara.personal-extension"
 assert manifest["config"]["capabilities"] == ["full_page_access"]
 assert manifest["config"]["runtime"] == "client"
 version = manifest["config"]["version"]
-assert version == "0.1.3"
+assert version == "0.1.4"
 source = (ROOT / manifest["config"]["jsPath"]).read_text(encoding="utf-8")
 subprocess.run(["node", "--check"], input=f"(async (marinara) => {{\n{source}\n}});\n", text=True, check=True)
 assert (ROOT / manifest["config"]["cssPath"]).is_file()

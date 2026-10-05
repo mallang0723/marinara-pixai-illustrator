@@ -34,7 +34,7 @@ test('paid diagnostics lock excludes double click and cleanup blocks the next st
   let resume, creates = 0, downloads = 0;
   const ctx = vm.createContext({ stopped: false, busy: false, isLeader: true, apiKey: 'fixture-only', PIXAI_BASE: 'https://api.pixai.art',
     confirm: () => true, recordStage() {}, pixaiHeaders: () => ({}), describeFetchError: () => 'fixture',
-    checkedFetch: async () => ({ ok: false, status: 404 }),
+    ensureTaskAccess: async () => 404,
     pixaiCreateTask: async () => { creates++; await new Promise(r => { resume = r; }); return { id: 'fixture' }; },
     pixaiWaitTask: async () => { if (ctx.stopped) throw new Error('stopped'); return {}; },
     pixaiDownload: async () => { downloads++; },

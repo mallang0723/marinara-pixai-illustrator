@@ -11,7 +11,7 @@ test('LoRA input survives settings and creates official modelId/weight payload w
     settings: { modelVersionId: '1983308862240288769', loras: '1744880666293972790:0.7, 9999999999999999999:0', processedRunIds: [] },
     MAX_REMEMBERED_RUNS: 500, PIXAI_BASE: 'https://api.pixai.art', saveQueue: Promise.resolve(), stopRevision: 0,
     MAX_PROMPT_CHARS: 2000, ASPECT_RATIOS: ['1:1'], DEFAULTS: { aspectRatio: '2:3' },
-    ensureRunning() {},
+    ensureRunning() {}, ensureTaskAccess: async () => 404,
     checkedFetch: async (url, init) => {
       calls.push(JSON.parse(init.body)); return { ok: true, text: async () => '{"id":"fixture"}' };
     },

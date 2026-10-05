@@ -109,7 +109,7 @@ test('attachment filename follows actual blob MIME while preserving existing att
 test('create boundary also bounds default negative and normalizes invalid ratio', async () => {
   let body;
   const ctx = vm.createContext({ settings: { modelVersionId: '123', loras: [], aspectRatio: '3:4', negativeDefault: 'n'.repeat(2100) },
-    ASPECT_RATIOS: ratios, DEFAULTS: { aspectRatio: '2:3' }, MAX_PROMPT_CHARS: 2000, PIXAI_BASE: 'https://api.pixai.art',
+    ASPECT_RATIOS: ratios, DEFAULTS: { aspectRatio: '2:3' }, MAX_PROMPT_CHARS: 2000, PIXAI_BASE: 'https://api.pixai.art', ensureTaskAccess: async () => 404,
     pixaiHeaders: () => ({}), recordStage() {}, checkedFetch: async (url, init) => { body = JSON.parse(init.body); return { ok: true, text: async () => '{}' }; } });
   vm.runInContext(helper('truncatePrompt') + '\n' + helper('parseLoras') + '\n' + helper('pixaiCreateTask'), ctx);
   await ctx.pixaiCreateTask('p'.repeat(2100), '', 'bad');

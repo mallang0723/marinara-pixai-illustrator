@@ -7,8 +7,8 @@
  * Pipeline per agent run:
  *   1. poll  GET  /api/agents/runs/:chatId/custom          (Marinara, same-origin)
  *   2. parse resultData.text  →  PIXAI_PROMPT / PIXAI_NEGATIVE / PIXAI_RATIO
- *   3. POST  https://api.pixai.art/v2/image/create          (PixAI, cross-origin)
- *   4. GET   https://api.pixai.art/v1/task/:id   (poll ≥1.5s) (PixAI, cross-origin)
+ *   3. probe GET /v2/task/0, then POST /v2/image/create     (PixAI, cross-origin)
+ *   4. GET   /v2/task/:id (404 only → v1, poll ≥1.5s)       (PixAI, cross-origin)
  *   5. GET   outputs.mediaUrls[0]  → blob                    (PixAI/CDN, cross-origin)
  *   6. POST  /api/gallery/:chatId/upload  (multipart)        (Marinara)
  *   7. PATCH /api/chats/:chatId/messages/:messageId/extra    (Marinara)
@@ -53,6 +53,7 @@ let settings = { ...DEFAULTS, ...(await marinara.storage.get()) };
 settings.enabled = settings.enabled === true; // restore only an explicitly saved ON
 let apiKey = settings.rememberKey !== false && typeof settings.apiKey === "string" ? settings.apiKey : "";
 let busy = false;
+let taskAccessCheck = null; // Promise cached for this extension session, never persisted.
 let stopped = false;
 const startedAt = Date.now();
 const sessionSeen = new Set();
@@ -195,6 +196,30 @@ function truncatePrompt(value) {
   return text.slice(0, end);
 }
 
+async function ensureTaskAccess() {
+  if (!taskAccessCheck) {
+    taskAccessCheck = (async () => {
+      try {
+        // Authorization triggers the same preflight as polling. No task is created.
+        // A missing task (404) or unauthorized key (401) still proves CORS access.
+        const res = await checkedFetch(`${PIXAI_BASE}/v2/task/0`, { headers: pixaiHeaders(), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+        return { status: res.status };
+      } catch (err) {
+        return { error: err };
+      }
+    })();
+  }
+  const result = await taskAccessCheck;
+  if (result.error) {
+    const detail = result.error instanceof TypeError
+      ? "이 접속 주소에서는 PixAI 결과 조회가 막혀 있음 — IP 주소로 접속하거나 다음 버전을 기다려 달라 (네트워크/CORS 오류 가능). 생성 요청은 보내지 않았습니다."
+      : `결과 조회 사전 확인 실패 — 생성 요청은 보내지 않았습니다. ${describeFetchError(result.error)}`;
+    recordStage("pixai.preflight GET", false, detail);
+    throw result.error;
+  }
+  return result.status;
+}
+
 async function pixaiCreateTask(prompt, negativePrompt, aspectRatio) {
   if (typeof settings.modelVersionId !== "string" || !/^[1-9]\d*$/.test(settings.modelVersionId)) throw new Error("모델 ID는 양의 정수 문자열이어야 합니다.");
   const loras = parseLoras(settings.loras);
@@ -209,6 +234,7 @@ async function pixaiCreateTask(prompt, negativePrompt, aspectRatio) {
   };
   if (settings.mode) body.mode = settings.mode;
   if (loras.length) body.loras = loras;
+  await ensureTaskAccess();
   let res;
   try {
     res = await checkedFetch(`${PIXAI_BASE}/v2/image/create`, { method: "POST", headers: pixaiHeaders(true), body: JSON.stringify(body), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
@@ -232,7 +258,12 @@ async function pixaiWaitTask(taskId) {
     await delay(POLL_TASK_MS);
     let res;
     try {
-      res = await checkedFetch(`${PIXAI_BASE}/v1/task/${encodeURIComponent(taskId)}`, { headers: pixaiHeaders(), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+      res = await checkedFetch(`${PIXAI_BASE}/v2/task/${encodeURIComponent(taskId)}`, { headers: pixaiHeaders(), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+      // Undocumented v2 route: only a real HTTP 404 permits legacy fallback.
+      if (res.status === 404) {
+        recordStage("pixai.task GET", true, "v2 HTTP 404 → v1 폴백");
+        res = await checkedFetch(`${PIXAI_BASE}/v1/task/${encodeURIComponent(taskId)}`, { headers: pixaiHeaders(), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+      }
     } catch (err) {
       recordStage("pixai.task GET", false, describeFetchError(err));
       throw err;
@@ -273,9 +304,12 @@ async function pixaiDownload(task) {
   if (mediaId) attempts.push({ label: "media/:id/image", url: `${PIXAI_BASE}/v1/media/${encodeURIComponent(mediaId)}/image`, headers: pixaiHeaders() });
   let lastErr = null;
   for (const a of attempts) {
+    const legacyHint = a.label === "media/:id/image"
+      ? " — v1 media 폴백은 도메인 Origin에서 CORS/CSRF 정책으로 차단될 수 있습니다. mediaUrls CDN 경로 또는 IP 접속을 확인하세요."
+      : "";
     try {
       const res = await checkedFetch(a.url, { headers: a.headers, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
-      if (!res.ok) { recordStage(`pixai.download (${a.label})`, false, `HTTP ${res.status}`); lastErr = new Error(`HTTP ${res.status}`); continue; }
+      if (!res.ok) { recordStage(`pixai.download (${a.label})`, false, `HTTP ${res.status}${legacyHint}`); lastErr = new Error(`HTTP ${res.status}`); continue; }
       const mime = (res.headers.get("content-type") || "").split(";")[0].toLowerCase();
       if (!["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"].includes(mime)) throw new Error("이미지 MIME 오류");
       if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("이미지 크기 초과");
@@ -297,7 +331,7 @@ async function pixaiDownload(task) {
       recordStage(`pixai.download (${a.label})`, true, `${blob.size} bytes ${blob.type}`);
       return blob;
     } catch (err) {
-      recordStage(`pixai.download (${a.label})`, false, describeFetchError(err));
+      recordStage(`pixai.download (${a.label})`, false, describeFetchError(err) + legacyHint);
       lastErr = err;
     }
   }
@@ -435,16 +469,16 @@ async function pollOnce() {
 // ─────────────────────────────────────────────────────────────
 async function runDiagnostics(includeCreate) {
   if (stopped || busy) return;
-  if (includeCreate && !isLeader) { recordStage("diag", false, "같은 브라우저의 다른 탭이 실행 중이거나 Web Locks 미지원입니다. localhost에서 한 탭만 사용하세요."); return; }
+  if (includeCreate && !isLeader) { recordStage("diag", false, "같은 브라우저의 다른 탭이 실행 중이거나 Web Locks 미지원입니다. localhost 또는 HTTPS에서 한 탭만 사용하세요."); return; }
   if (!apiKey) { recordStage("diag", false, "set API key first"); return; }
   if (includeCreate && !confirm("이미지 1장 생성으로 PixAI 크레딧을 소모합니다. 계속할까요?")) return;
   busy = true;
   try {
   // Stage 1: query GET
   try {
-    const r = await checkedFetch(`${PIXAI_BASE}/v1/task/diagnostic-nonexistent`, { headers: pixaiHeaders(), credentials: "omit", redirect: "error", referrerPolicy: "no-referrer" });
-    recordStage("diag.task GET", true, `HTTP ${r.status} (any status = CORS passed)`);
-    if (!r.ok && r.status !== 404) return;
+    const status = await ensureTaskAccess();
+    recordStage("diag.task GET", true, `v2 HTTP ${status} (세션 캐시, HTTP 응답 = CORS 통과; 키 유효성·생성 성공 보장 아님)`);
+    if (status >= 400 && status !== 404) return;
   } catch (err) { recordStage("diag.task GET", false, describeFetchError(err)); return; }
   if (!includeCreate) return;
   // Stage 2+3: real create (costs credits) → poll → download
@@ -557,7 +591,7 @@ q(".pb-save").addEventListener("click", async () => {
     })));
   } catch (err) { recordStage("settings", false, err.message); return; }
   if (q(".pb-enabled").checked) {
-    if (!isLeader) { recordStage("settings", false, "Web Locks 지원 localhost 브라우저 한 탭에서만 자동 처리할 수 있습니다."); return; }
+    if (!isLeader) { recordStage("settings", false, "Web Locks 지원 localhost/HTTPS 브라우저 한 탭에서만 자동 처리할 수 있습니다."); return; }
     if (!q(".pb-key").value.trim()) { recordStage("settings", false, "키 입력 필요"); return; }
     try {
       const res = await mfetch("/agents");

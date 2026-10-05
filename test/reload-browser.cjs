@@ -28,6 +28,7 @@ const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
               return new Response(JSON.stringify(scenario === 'duplicate-agent' ? [agent, agent] : [agent]));
             }
             if (url.includes('/agents/runs/')) return new Response(JSON.stringify(window.runs));
+            if (url.endsWith('/v2/task/0')) return new Response('', { status: 404 });
             if (url.endsWith('/v2/image/create')) { window.created++; return new Response('{}', { status: 400 }); }
             throw new Error('Unexpected fixture route');
           },

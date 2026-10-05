@@ -1,10 +1,10 @@
-# PixAI Illustrator Bridge 0.1.3
+# PixAI Illustrator Bridge 0.1.4
 
 **설치 요약: 받을 파일은 두 개입니다.**
 
 | 파일 | 넣는 곳 |
 |---|---|
-| `marinara-pixai-illustrator-v0.1.3.zip` | 설정 › Addons › **External Extensions** › Import (압축 풀지 말고 ZIP 그대로) |
+| `marinara-pixai-illustrator-v0.1.4.zip` | 설정 › Addons › **External Extensions** › Import (압축 풀지 말고 ZIP 그대로) |
 | `pixai-director.agent.json` | **Agents** 패널 › **Import agents** (Danger Zone의 *Allow custom Agent imports* 먼저 켜기) |
 
 JSON을 External Extensions에 넣거나 ZIP을 Agents에 넣으면 "No personal extensions were found" 같은 오류가 납니다.
@@ -19,6 +19,7 @@ Marinara Engine의 사용자 에이전트가 만든 이미지 프롬프트를 �
 |---|---|
 | RP·대화 모드 턴 삽화(에이전트가 장면을 고르면 이미지 1장 → 메시지 첨부) | ✅ |
 | 모델 선택·LoRA 최대 5개 | ✅ |
+| 원격 웹서버(도메인 주소) 지원(0.1.4~) | HTTPS·Web Locks 브라우저, 서버/클라이언트 시계 동기화 전제. v2 결과 조회 사용; 원격 실측·독립 검토 대기 |
 | `/selfie` 명령, Noodle, 아바타 등 Marinara 내장 이미지 기능 | ❌ — 이 기능들은 Marinara 내장 이미지 연결을 씁니다. PixAI 네이티브 연결은 Marinara 본체 기여로 따로 진행 중입니다 |
 | 캐릭터 카드 이미지 참조 | ❌ — PixAI API가 참조 이미지 입력을 받지 않습니다 |
 | 캐릭터별 고정 태그·LoRA | 다음 버전(0.2.0) 예정 |
@@ -32,7 +33,7 @@ Marinara Engine의 사용자 에이전트가 만든 이미지 프롬프트를 �
 
 `agent/` 패키지는 이 저장소에서 수동 작성한 번들 가져오기 자료입니다. Professor Mari가 만들거나 내보낸 패키지가 아닙니다. 에이전트는 텍스트 프롬프트만 작성하며 이미지 생성은 별도 확장이 담당합니다.
 
-릴리스에 올라가는 파일은 `marinara-pixai-illustrator-v0.1.3.zip`, `pixai-director.agent.json`, `SHA256SUMS` 세 개입니다. 소스에서 직접 만들려면 `python3 tools/build.py`를 실행합니다(확장 ZIP과 체크섬 생성).
+릴리스에 올라가는 파일은 `marinara-pixai-illustrator-v0.1.4.zip`, `pixai-director.agent.json`, `SHA256SUMS` 세 개입니다. 소스에서 직접 만들려면 `python3 tools/build.py`를 실행합니다(확장 ZIP과 체크섬 생성).
 
 확장 ZIP은 소스·문서·테스트·빌드 스크립트를 포함합니다. 빌드는 감싼 `node --check`, ZIP 무결성과 원본 바이트 일치를 검사합니다. 배포 파일이 있는 `dist/`에서 `sha256sum -c SHA256SUMS`로 확인합니다.
 
@@ -42,19 +43,19 @@ Marinara Engine의 사용자 에이전트가 만든 이미지 프롬프트를 �
 
 자동 처리 복원 검증: 같은 환경변수로 `node test/reload-browser.cjs`. 저장 ON/OFF, 로드/켜기 이전 run 제외, 키 없음·Director 중복·다른 탭 차단 및 복원 중 중지 우선순위를 네트워크 차단 fixture에서 검사합니다.
 
-## 설치 (localhost)
+## 설치 (localhost 또는 원격 HTTPS)
 
 1. 릴리스의 `SHA256SUMS`로 두 파일의 해시를 확인합니다(`sha256sum -c SHA256SUMS`). 원하면 ZIP 안의 소스를 먼저 읽어 보세요.
-2. Marinara를 `localhost`로 열고 `.env`의 `ENABLE_EXTERNAL_EXTENSIONS=true` 적용 여부를 확인합니다.
+2. Marinara를 `localhost` 또는 원격 HTTPS 주소로 열고 `.env`의 `ENABLE_EXTERNAL_EXTENSIONS=true` 적용 여부를 확인합니다.
 3. Settings → Advanced → Danger Zone에서 **Allow third-party extension imports**를 켭니다.
-4. Addons → External Extensions에서 `marinara-pixai-illustrator-v0.1.3.zip`을 가져와 `full_page_access` 요청을 확인한 뒤 **Review and Run**을 승인합니다.
+4. Addons → External Extensions에서 `marinara-pixai-illustrator-v0.1.4.zip`을 가져와 `full_page_access` 요청을 확인한 뒤 **Review and Run**을 승인합니다.
 5. Danger Zone에서 **Allow custom Agent imports**를 켠 뒤 Agents → **Import agents**에서 `pixai-director.agent.json`을 선택합니다.
 6. 에이전트가 Post-Processing, Context Injection, Add as Prompt Section OFF, 모든 능력과 도구 OFF인지 확인하고 대상 채팅에서 Enable Agents를 켭니다.
 7. 🎨 패널에서 모델·LoRA·생성 옵션과 키를 입력하고, 자동 처리 OFF로 먼저 **저장**한 뒤 **진단 1: GET만**을 실행합니다.
 8. 필요할 때만 비용 확인창에 동의해 **진단 2**를 한 번 실행합니다. 모델·LoRA 설정을 확인한 뒤 자동 처리를 켜고 저장합니다.
 9. 실제 채팅 한 턴에서 이미지 1장 → 갤러리 → 메시지 첨부를 확인하고, 새로고침 뒤 첨부 유지와 비재생성을 확인합니다.
 
-가져오기 UI나 항목 이름은 Marinara 버전에 따라 달라질 수 있습니다. [agent/IMPORT.ko.md](./agent/IMPORT.ko.md)도 참고하세요. 지원 범위는 **Web Locks를 제공하는 최신 localhost 브라우저 한 프로필·한 출처**입니다. 같은 서버를 다른 브라우저/기기/포트로 동시에 사용하지 마세요. 정확히 한 개의 `PixAI Director`를 가져와 이름을 유지합니다. 새로고침 시 저장된 자동 처리 ON/OFF를 복원하며, **로드 이전·다시 켜기 이전 run은 소급 처리하지 않습니다.** 저장된 ON은 키·단일 탭 잠금·Director 확인이 끝나야 실제 실행됩니다. 상태줄 OFF 옆에 설정 꺼짐/키 없음/잠금 대기/Director 확인 필요/활성 채팅 없음의 이유가 표시됩니다. 체크박스는 저장 설정, 상태줄은 실제 실행 가능 여부입니다.
+가져오기 UI나 항목 이름은 Marinara 버전에 따라 달라질 수 있습니다. [agent/IMPORT.ko.md](./agent/IMPORT.ko.md)도 참고하세요. 지원 범위는 **Web Locks를 제공하는 최신 localhost/HTTPS 브라우저 한 프로필·한 출처**입니다. 같은 서버를 다른 브라우저/기기/포트로 동시에 사용하지 마세요. 정확히 한 개의 `PixAI Director`를 가져와 이름을 유지합니다. 새로고침 시 저장된 자동 처리 ON/OFF를 복원하며, **시계가 동기화된 환경에서 로드 이전·다시 켜기 이전 run은 소급 처리하지 않습니다.** 저장된 ON은 키·단일 탭 잠금·Director 확인이 끝나야 실제 실행됩니다. 상태줄 OFF 옆에 설정 꺼짐/키 없음/잠금 대기/Director 확인 필요/활성 채팅 없음의 이유가 표시됩니다. 체크박스는 저장 설정, 상태줄은 실제 실행 가능 여부입니다.
 
 ## 모델과 LoRA
 
@@ -99,10 +100,12 @@ LoRA는 행을 추가하거나 삭제해 설정합니다. PixAI 공식 요청 �
 PixAI 과금 단위는 “크레딧 1개”라고 단정하지 않습니다. 생성 요청은 **IMAGE 1장**을 청구하며 실제 크레딧 비용은 계정·모델·모드 등 PixAI 정책에 따라 달라질 수 있습니다. `batchSize`는 1로 고정되어 있습니다.
 
 - 진단 1은 존재하지 않는 task를 조회하는 GET이며 이미지 생성을 요청하지 않습니다.
+- 자동 처리·진단 생성 모두 생성 전에 `GET /v2/task/0`으로 결과 조회 접근을 확인합니다. Authorization 헤더로 실제 조회와 같은 프리플라이트를 유발하며, 404/401 등 읽을 수 있는 HTTP 응답은 CORS가 열렸다는 뜻일 뿐 키 유효성·서비스 정상 여부를 보장하지 않습니다. 네트워크/CORS 오류나 시간 초과면 create를 보내지 않고 패널에 원인을 표시합니다.
+- 진단 1과 생성 전 확인은 성공/실패 결과를 **현재 확장 실행 세션 메모리**에 공유합니다. 연결·키를 고친 뒤에는 새로고침하거나 확장을 다시 실행해 캐시를 갱신하세요. 저장소에는 기록하지 않습니다.
 - 진단 2는 실제 IMAGE 1장을 생성하고 다운로드하므로 비용이 발생합니다.
 - 진단 2를 반복하거나 실제 턴을 다시 생성하면 매번 추가 비용이 발생할 수 있습니다.
 
-2026-10-02 별도 검증자의 보고서는 create, task 조회, CDN 및 media 다운로드의 직접 CORS 통과를 기록합니다. 보고 수용이며 본 확장의 실제 통합 실행 증거는 아닙니다. 별도 CORS 스니펫은 제공하지 않습니다.
+2026-10-02 CORS 통과 보고는 모든 Origin에 대한 보장이 아닙니다. 2026-10-05 원격 도메인 실측 보고에서 v1 task/media 프리플라이트 차단과 v2 task·CDN 접근 가능이 확인되어 v2 우선으로 변경했습니다. 이 보고 수용과 오프라인 fixture 검증은 v0.1.4 실제 원격 통합 실행 증거와 구분합니다.
 
 ## 권한과 보안 경계
 
@@ -147,9 +150,12 @@ Marinara 변경 요청에는 `x-marinara-csrf: 1`을 보냅니다. 인수 확인
 
 ## 알려진 제한
 
+- v2 조회 경로는 PixAI 문서에 없는 경로라 바뀔 수 있습니다 → 실제 task 조회의 **HTTP 404에서만 v1 폴백**합니다. 401/429/5xx·네트워크/CORS 오류에서는 폴백하지 않습니다. v1 폴백은 도메인 Origin에서 다시 차단될 수 있습니다.
+- 사전 확인용 task 0의 404는 없는 task와 없어진 경로를 구분하지 못합니다. 세션 중 정책 변경·실제 task 조회·다운로드 실패까지 미리 보장하는 안전장치는 아닙니다. 다운로드는 `mediaUrls` CDN 우선이며, v1 media 폴백 실패에는 도메인 Origin 제한 가능성을 표시합니다.
+
 - **자동 처리 중지·기준 재설정**은 busy 중에도 메모리상 OFF를 즉시 적용하고 저장만 큐로 처리합니다. 이미 시작한 1건은 첨부까지 계속할 수 있지만 같은 poll의 나머지 후보는 시작하지 않습니다. 저장 완료 대기 중 중지되면 유료 호출 전에 다시 확인합니다. 저장 실패나 이전 쓰기 완료가 중지를 취소하지 않습니다. 진행 중 요청도 끊으려면 확장을 비활성화하세요(이미 접수된 과금 취소는 보장하지 않음).
 
-- **브라우저와 Marinara 서버가 같은 기기(localhost)에서 같은 시계를 사용하는 것이 전제입니다.** 오래된 run 제외는 활성화 시각 기준이며, 원격 HTTPS 서버나 VM 등 시계가 다른 환경에서는 켜기 전 run이 처리될 수 있으므로 지원하지 않습니다. 호출되지 않던 기존 run 수집 함수는 제거했습니다. 유한 개수의 초기 조회로 원격·채팅 전환까지 보호한다고 오인하게 만드는 대신 기존 localhost 범위를 유지한 결정입니다. 저장 요청은 직렬화됩니다.
+- **브라우저와 Marinara 서버의 시계 동기화가 전제입니다.** 오래된 run 제외는 클라이언트 활성화 시각과 서버 run 시각 비교이며, 원격 서버 시계가 앞서면 켜기 전 run 처리, 뒤처지면 새 run 누락 가능성이 있습니다. 0.1.4는 원격 도메인의 CORS 경로만 개선하며 시계 오차 보정·서버 기준선은 포함하지 않습니다. 저장 요청은 직렬화됩니다.
 - 첨부 병합 전 메시지 전체 목록을 읽습니다. 단순 `limit` 추가는 오래된 대상 메시지 누락 위험이 있어 이번 수정에서는 하지 않았습니다. 커서 탐색은 별도 성능 개선 대상으로 남깁니다.
 
 - 같은 출처·브라우저에서는 Web Lock으로 한 탭만 유료 작업을 실행합니다. 다른 브라우저/기기/출처는 잠금을 공유하지 않으므로 동시 사용은 지원하지 않습니다. 다른 탭을 닫은 뒤 사용할 탭을 새로고침하세요.
@@ -166,6 +172,7 @@ Marinara 변경 요청에는 `x-marinara-csrf: 1`을 보냅니다. 인수 확인
 
 - 실제 Marinara 2.4.6(staging)에서 확장·에이전트 가져오기와 RP 턴 삽화 생성·메시지 첨부를 사용자가 확인했습니다(v0.1.2, 2026-10-05). v0.1.3 변경분은 오프라인 테스트와 독립 검토로 확인했습니다.
 - 독립 보안 검토를 통과했습니다(키 저장·노출 경로, 다운로드 호스트, 중복 과금 방지).
+- v0.1.4는 오프라인 회귀 검증 대상이며, 변경분 독립 검토와 사용자 원격 실측은 별도입니다. 이 버전 작업에서는 실제 생성·배포를 수행하지 않습니다.
 
 ## 라이선스
 
@@ -187,3 +194,4 @@ GNU Affero General Public License v3.0으로 배포합니다. 전문은 [LICENSE
 | 2026-10-05 | README | 자동 처리 복원·OFF 사유·실측 보고 |
 | 2026-10-05 | README | 서버 API 키 노출면 고지 보강 |
 | 2026-10-05 | README | 공개본 정리 — 설치 파일 2개(확장 ZIP·에이전트 JSON), 지원 범위, 모델·LoRA ID 찾는 법, 검증 기록, 저작권 확정 |
+| 2026-10-05 | README | 0.1.4 원격 조회·과금 전 확인·제한 명시 |
