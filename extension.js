@@ -111,6 +111,18 @@ function recordStage(stage, ok, detail) {
   log(ok ? "info" : "error", `[${stage}] ${ok ? "OK" : "FAIL"} ${entry.detail}`);
 }
 
+function savePosition(value) {
+  const write = saveQueue.then(async () => {
+    ensureRunning();
+    // Layout changes in a stale/follower tab must never overwrite billing settings.
+    await marinara.storage.patch({ uiPosition: value });
+    ensureRunning();
+    settings.uiPosition = value;
+  });
+  saveQueue = write.catch(() => {});
+  return write;
+}
+
 async function saveSettings(patch) {
   const revision = stopRevision;
   const write = saveQueue.then(async () => {
@@ -212,7 +224,7 @@ async function ensureTaskAccess() {
   const result = await taskAccessCheck;
   if (result.error) {
     const detail = result.error instanceof TypeError
-      ? "이 접속 주소에서는 PixAI 결과 조회가 막혀 있음 — IP 주소로 접속하거나 다음 버전을 기다려 달라 (네트워크/CORS 오류 가능). 생성 요청은 보내지 않았습니다."
+      ? "PixAI 결과 조회 연결을 확인하지 못했습니다 (네트워크/CORS 오류 가능). 연결을 확인하고 새로고침 후 다시 시도하세요. 생성 요청은 보내지 않았습니다."
       : `결과 조회 사전 확인 실패 — 생성 요청은 보내지 않았습니다. ${describeFetchError(result.error)}`;
     recordStage("pixai.preflight GET", false, detail);
     throw result.error;
@@ -573,7 +585,7 @@ function setupMovablePanel() {
   };
   const persist = (value) => {
     // Use the existing serial queue without touching busy, credentials or billing.
-    void saveSettings({ uiPosition: value }).catch(() => {
+    void savePosition(value).catch(() => {
       if (!stopped) recordStage("position", false, "위치 저장 실패 — 현재 화면에만 적용됩니다. 다시 이동하거나 초기화하세요.");
     });
   };

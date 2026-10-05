@@ -22,3 +22,26 @@ test('positions clamp to visible viewport including offsets and invalid saved co
   assert.deepEqual(clamp({ x: 0, y: 999 }, size, { x: 20, y: 50, width: 200, height: 300 }), { x: 28, y: 306 });
   assert.deepEqual(clamp({ x: 100, y: 100 }, { width: 500, height: 1000 }), { x: 8, y: 8 });
 });
+test('stale tab position saves and reset preserve another tab OFF, model and processed runs', async () => {
+  const stored = { enabled: false, modelVersionId: 'new-model', processedRunIds: ['new-run'] };
+  const writes = [];
+  const ctx = vm.createContext({
+    settings: { enabled: true, modelVersionId: 'old-model', processedRunIds: [] },
+    saveQueue: Promise.resolve(), stopRevision: 0, MAX_REMEMBERED_RUNS: 500,
+    stopped: false, ensureRunning() {}, recordStage() {},
+    marinara: { storage: { patch: async p => { writes.push(JSON.parse(JSON.stringify(p))); Object.assign(stored, p); } } },
+  });
+  vm.runInContext(helper('saveSettings'), ctx);
+  if (source.includes('function savePosition(')) vm.runInContext(helper('savePosition'), ctx);
+  const persist = source.match(/const persist = \(value\) => \{[\s\S]*?\n  \};/)[0];
+  vm.runInContext(persist + '\nglobalThis.persist = persist;', ctx);
+  for (const value of [{ button: { x: 30, y: 40 } }, null]) {
+    ctx.persist(value);
+    await ctx.saveQueue;
+    assert.equal(stored.enabled, false, 'tab A OFF must survive stale tab B position write');
+    assert.equal(stored.modelVersionId, 'new-model');
+    assert.deepEqual(stored.processedRunIds, ['new-run']);
+    assert.deepEqual(writes.at(-1), { uiPosition: value }, 'only the position key may be patched');
+    assert.deepEqual(ctx.settings.uiPosition, value);
+  }
+});

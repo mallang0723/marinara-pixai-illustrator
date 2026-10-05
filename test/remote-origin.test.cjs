@@ -67,7 +67,7 @@ test('CORS probe failure is session-cached and prevents every paid create', asyn
   });
   for (let i = 0; i < 2; i++) await assert.rejects(ctx.pixaiCreateTask('fixture', '', '1:1'));
   assert.deepEqual(calls.map(x => x.url), ['https://api.pixai.art/v2/task/0']);
-  assert.ok(stages.some(x => x[2].includes('이 접속 주소에서는 PixAI 결과 조회가 막혀 있음')));
+  assert.ok(stages.some(x => x[2].includes('네트워크/CORS 오류 가능') && x[2].includes('새로고침 후 다시 시도')));
 });
 test('v2 404 alone falls back to v1; other HTTP and transport errors never do', async () => {
   const { ctx, calls } = fixture(async url => url.includes('/v2/')

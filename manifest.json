@@ -4,7 +4,7 @@
   "config": {
     "name": "PixAI Illustrator Bridge",
     "version": "0.1.4",
-    "description": "PixAI Director의 이미지 프롬프트로 이미지 1장을 생성해 갤러리와 메시지에 첨부합니다. 전체 페이지 접근·PixAI 크레딧이 필요합니다. 로컬 검증 후보이며 공개 승인 전입니다.",
+    "description": "PixAI Director의 이미지 프롬프트로 이미지 1장을 생성해 갤러리와 메시지에 첨부합니다. 전체 페이지 접근·PixAI 크레딧이 필요합니다.",
     "runtime": "client",
     "capabilities": ["full_page_access"],
     "jsPath": "extension.js",
