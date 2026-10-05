@@ -494,12 +494,21 @@ async function runDiagnostics(includeCreate) {
 // ─────────────────────────────────────────────────────────────
 // Panel UI (DOM injected — full-page runtime has no marinara.ui)
 // ─────────────────────────────────────────────────────────────
+function clampPosition(point, size, viewport) {
+  const axis = (value, origin, extent, length) => Math.min(
+    Math.max(origin + 8, origin + extent - length - 8),
+    Math.max(origin + 8, Number.isFinite(value) ? value : origin + 8),
+  );
+  return { x: axis(point?.x, viewport.x, viewport.width, size.width), y: axis(point?.y, viewport.y, viewport.height, size.height) };
+}
+
 const root = document.createElement("div");
 root.className = "pixai-bridge-root";
 root.innerHTML = `
-  <button class="pixai-bridge-toggle" title="PixAI Bridge">🎨</button>
+  <button class="pixai-bridge-toggle" type="button" title="PixAI Bridge — 드래그로 이동" aria-label="PixAI 패널 열기/닫기" aria-expanded="false">🎨</button>
   <div class="pixai-bridge-panel" hidden>
-    <div class="pixai-bridge-row"><strong>PixAI Illustrator Bridge</strong><span class="pixai-bridge-status"></span></div>
+    <div class="pixai-bridge-row pb-drag-handle" title="드래그로 패널 이동"><strong>PixAI Illustrator Bridge</strong><span class="pixai-bridge-status"></span></div>
+    <button class="pb-position-reset" type="button">위치 초기화</button>
     <label>API key <input type="password" class="pb-key" placeholder="pixai api key" autocomplete="off"></label>
     <label class="pixai-bridge-inline"><input type="checkbox" class="pb-remember"> API 키 기억 (기본값, 저장 버튼으로 적용)</label>
     <button class="pb-delete-key" type="button">저장된 키 삭제</button>
@@ -533,7 +542,106 @@ document.body.appendChild(root);
 
 const q = (sel) => root.querySelector(sel);
 const panel = q(".pixai-bridge-panel");
-q(".pixai-bridge-toggle").addEventListener("click", () => { panel.hidden = !panel.hidden; });
+function setupMovablePanel() {
+  const button = q(".pixai-bridge-toggle");
+  const header = q(".pb-drag-handle");
+  const events = new AbortController();
+  const options = { signal: events.signal };
+  let position = settings.uiPosition || {};
+  let drag = null;
+  let suppressClick = false;
+  const viewport = () => {
+    const v = window.visualViewport;
+    return { x: v?.offsetLeft || 0, y: v?.offsetTop || 0, width: v?.width || window.innerWidth, height: v?.height || window.innerHeight };
+  };
+  const place = (element, point) => {
+    const p = clampPosition(point, element.getBoundingClientRect(), viewport());
+    element.style.left = `${p.x}px`;
+    element.style.top = `${p.y}px`;
+    return p;
+  };
+  const layout = () => {
+    if (stopped) return;
+    const v = viewport();
+    const b = place(button, position.button || { x: v.x + v.width - 48, y: v.y + v.height - 108 });
+    panel.style.maxWidth = `${Math.max(0, v.width - 16)}px`;
+    panel.style.maxHeight = `${Math.max(0, Math.min(v.height * 0.7, v.height - 16))}px`;
+    if (!panel.hidden) {
+      const size = panel.getBoundingClientRect();
+      place(panel, position.panel || { x: b.x + button.offsetWidth - size.width, y: b.y - size.height - 8 });
+    }
+  };
+  const persist = (value) => {
+    // Use the existing serial queue without touching busy, credentials or billing.
+    void saveSettings({ uiPosition: value }).catch(() => {
+      if (!stopped) recordStage("position", false, "위치 저장 실패 — 현재 화면에만 적용됩니다. 다시 이동하거나 초기화하세요.");
+    });
+  };
+  const finish = (event, cancelled = false) => {
+    if (!drag || event.pointerId !== drag.id) return;
+    const current = drag;
+    drag = null;
+    if (current.handle.hasPointerCapture(current.id)) current.handle.releasePointerCapture(current.id);
+    if (cancelled) { position = current.before; layout(); }
+    else if (current.moved) persist(position);
+    else if (current.key === "button" && event.pointerType === "touch") {
+      // Some touch browsers omit compatibility click after a small pointer move.
+      button.click();
+      suppressClick = true; // swallow a later native click, not keyboard activation
+    }
+  };
+  for (const [handle, element, key] of [[button, button, "button"], [header, panel, "panel"]]) {
+    handle.addEventListener("pointerdown", (event) => {
+      if (stopped || drag || !event.isPrimary || event.button !== 0) return;
+      suppressClick = false;
+      const rect = element.getBoundingClientRect();
+      drag = { id: event.pointerId, handle, key, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top, moved: false, before: position };
+      handle.setPointerCapture(event.pointerId);
+    }, options);
+    handle.addEventListener("pointermove", (event) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
+      if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+      drag.moved = true;
+      suppressClick = true;
+      const p = place(element, { x: drag.left + dx, y: drag.top + dy });
+      position = { ...position, [key]: p };
+      // Moving the palette re-anchors the panel next to it, even while open.
+      if (key === "button") position.panel = null;
+      layout();
+    }, options);
+    handle.addEventListener("pointerup", event => finish(event), options);
+    handle.addEventListener("pointercancel", event => finish(event, true), options);
+    handle.addEventListener("lostpointercapture", event => finish(event, true), options);
+  }
+  button.addEventListener("click", (event) => {
+    // Native keyboard activation has detail=0 and must survive a previous drag.
+    if (suppressClick && event.detail !== 0) { suppressClick = false; event.preventDefault(); return; }
+    suppressClick = false;
+    panel.hidden = !panel.hidden;
+    button.setAttribute("aria-expanded", String(!panel.hidden));
+    layout();
+  }, options);
+  q(".pb-position-reset").addEventListener("click", () => {
+    position = {};
+    layout();
+    persist(null);
+  }, options);
+  window.addEventListener("resize", layout, options);
+  window.visualViewport?.addEventListener("resize", layout, options);
+  window.visualViewport?.addEventListener("scroll", layout, options);
+  // Content changes (LoRA rows/logs/status) must not push the panel off-screen.
+  const observer = new ResizeObserver(layout);
+  observer.observe(panel);
+  layout();
+  return () => {
+    events.abort();
+    observer.disconnect();
+    if (drag?.handle.hasPointerCapture(drag.id)) drag.handle.releasePointerCapture(drag.id);
+    drag = null;
+  };
+}
+const cleanupPosition = setupMovablePanel();
 
 q(".pb-key").value = apiKey;
 q(".pb-remember").checked = settings.rememberKey !== false;
@@ -700,6 +808,7 @@ log("info", "PixAI Illustrator Bridge loaded");
 
 return () => {
   stopped = true;
+  cleanupPosition();
   settings.enabled = false;
   for (const controller of requestControllers) controller.abort();
   requestControllers.clear();
