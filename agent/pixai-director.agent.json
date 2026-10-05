@@ -1,6 +1,7 @@
 {
   "kind": "marinara.agent",
   "version": 1,
+  "functions": [],
   "config": {
     "type": "custom-pixai-director",
     "name": "PixAI Director",

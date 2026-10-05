@@ -17,7 +17,15 @@ const require = createRequire(join(root, 'packages/client/package.json'));
 const { build } = require('esbuild');
 const shared = join(root, 'packages/shared/src/index.ts');
 const transfer = join(root, 'packages/client/src/lib/agent-transfer.ts');
+// Execute the panel's actual single-JSON wrapper/count expression, not a reimplementation.
+const panel = readFileSync(join(root, 'packages/client/src/components/panels/AgentsPanel.tsx'), 'utf8');
+const getEntries = panel.match(/function getAgentImportEntries\(parsed: unknown\) \{[\s\S]*?\n\}/)?.[0];
+const skippedCount = panel.match(/skippedFunctionCount: (getFolderImportEntries\(parsed, \["functions", "customTools", "tools"\]\)\.length)/)?.[1];
+assert.ok(getEntries && skippedCount, 'Panel single-JSON import path changed; review validator against upstream');
 const source = `export { normalizeAgentImportEntry, sanitizeAgentSettingsForImport } from ${JSON.stringify(transfer)};
+import { getFolderImportEntries } from ${JSON.stringify(shared)};
+export ${getEntries}
+export function skippedFunctionCount(parsed: unknown) { return ${skippedCount}; }
 export { getFolderImportEntries, createAgentConfigSchema, importAgentConfigSchema, CUSTOM_AGENT_CAPABILITY_IDS, normalizeCustomAgentCapabilities, normalizeCustomAgentContextSources } from ${JSON.stringify(shared)};`;
 const result = await build({
   stdin: { contents: source, resolveDir: root, sourcefile: 'offline-agent-validator.ts', loader: 'ts' },
@@ -28,8 +36,10 @@ const api = await import(`data:text/javascript;base64,${Buffer.from(result.outpu
 const artifactPath = join(here, 'pixai-director.agent.json');
 const bytes = readFileSync(artifactPath);
 const artifact = JSON.parse(bytes);
-const entries = api.getFolderImportEntries(artifact, ['agents']);
+const entries = api.getAgentImportEntries(artifact);
 assert.equal(entries.length, 1);
+assert.equal(api.skippedFunctionCount(artifact), 0, 'skippedFunctionCount=0');
+console.log('PASS actual AgentsPanel single-JSON path: agents=1, skippedFunctionCount=0');
 const normalized = api.normalizeAgentImportEntry(entries[0], () => null);
 assert.ok(normalized);
 const { requestedCapabilities, ...agent } = normalized;
