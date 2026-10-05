@@ -1,0 +1,17 @@
+.pixai-bridge-root { position: fixed; right: 12px; bottom: 72px; z-index: 9999; font: 12px/1.4 system-ui, sans-serif; }
+.pixai-bridge-toggle { width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); background: #fff; cursor: pointer; font-size: 18px; box-shadow: 0 2px 8px rgba(0,0,0,.25); }
+.pixai-bridge-panel { position: absolute; right: 0; bottom: 44px; width: 340px; max-height: 70vh; overflow: auto; background: #fff; color: #222; border: 1px solid rgba(0,0,0,.2); border-radius: 10px; padding: 10px; box-shadow: 0 4px 16px rgba(0,0,0,.3); display: flex; flex-direction: column; gap: 6px; }
+@media (prefers-color-scheme: dark) { .pixai-bridge-panel, .pixai-bridge-toggle { background: #1e1e22; color: #eee; border-color: rgba(255,255,255,.2); } }
+.pixai-bridge-panel label { display: flex; flex-direction: column; gap: 2px; }
+.pixai-bridge-panel label.pixai-bridge-inline { flex-direction: row; align-items: center; gap: 6px; }
+.pixai-bridge-panel input, .pixai-bridge-panel select, .pixai-bridge-panel textarea { font: inherit; padding: 3px 5px; border: 1px solid rgba(128,128,128,.5); border-radius: 5px; background: transparent; color: inherit; }
+.pixai-bridge-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.pixai-bridge-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: space-between; }
+.pixai-bridge-row button { font: inherit; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(128,128,128,.5); background: transparent; color: inherit; cursor: pointer; }
+.pixai-bridge-status { font-size: 11px; opacity: .75; }
+.pixai-bridge-log { margin: 0; max-height: 160px; overflow: auto; white-space: pre-wrap; font-size: 11px; background: rgba(128,128,128,.12); padding: 6px; border-radius: 6px; }
+.pixai-bridge-preview { display: block; max-width: 100%; max-height: 32rem; margin: 8px auto; border-radius: 8px; object-fit: contain; }
+.pixai-bridge-panel[hidden] { display: none; }
+.pixai-bridge-panel { width: min(360px, calc(100vw - 44px)); }
+.pb-lora-row { display: grid; grid-template-columns: minmax(0, 1fr) 65px auto; gap: 4px; margin: 4px 0; }
+.pb-lora-row input { min-width: 0; }

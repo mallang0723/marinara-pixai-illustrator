@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PixAI Bridge screenshot fixture</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: Inter, Pretendard, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f1eb;
+      color: #302d28;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 85% 16%, rgba(238, 168, 120, .24), transparent 32%),
+        radial-gradient(circle at 5% 88%, rgba(98, 135, 154, .18), transparent 36%),
+        #f4f1eb;
+    }
+
+    .fixture-shell {
+      min-height: 100vh;
+      padding: 16px;
+    }
+
+    .mock-banner {
+      position: relative;
+      z-index: 10000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 10px 14px;
+      border: 1px solid #9b3d35;
+      border-radius: 12px;
+      background: #fff4ef;
+      color: #7e2d27;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .01em;
+      box-shadow: 0 4px 14px rgba(87, 41, 35, .12);
+    }
+
+    .fixture-copy {
+      width: 250px;
+      margin-top: 42px;
+      padding: 18px;
+      border: 1px solid rgba(48, 45, 40, .12);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, .56);
+      box-shadow: 0 12px 34px rgba(68, 57, 45, .08);
+    }
+
+    .fixture-kicker {
+      margin: 0 0 8px;
+      color: #8d5143;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .fixture-copy h1 {
+      margin: 0 0 8px;
+      font-size: 22px;
+      line-height: 1.15;
+    }
+
+    .fixture-copy p {
+      margin: 0;
+      color: #6c665e;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+  </style>
+</head>
+<body>
+  <main class="fixture-shell">
+    <div class="mock-banner" role="status">모의 화면 · 실제 API 호출 없음</div>
+    <section class="fixture-copy" aria-label="격리된 스크린샷 픽스처 안내">
+      <p class="fixture-kicker">isolated fixture</p>
+      <h1>PixAI Bridge</h1>
+      <p>로컬 Playwright 환경에서 확장 패널의 화면 상태만 재현합니다.</p>
+    </section>
+  </main>
+</body>
+</html>
