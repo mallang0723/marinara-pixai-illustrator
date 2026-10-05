@@ -19,3 +19,12 @@
 .pixai-bridge-panel { width: min(360px, calc(100vw - 16px)); }
 .pb-lora-row { display: grid; grid-template-columns: minmax(0, 1fr) 65px auto; gap: 4px; margin: 4px 0; }
 .pb-lora-row input { min-width: 0; }
+/* 0.2.0: narrow screens use stacked profile cards. */
+.pixai-bridge-panel details { min-width: 0; border-top: 1px solid #8885; padding-top: 6px; }
+.pixai-bridge-panel summary { cursor: pointer; font-weight: 600; }
+.pb-profiles fieldset { margin: 8px 0; padding: 8px; min-width: 0; border: 1px solid #8887; border-radius: 6px; }
+.pb-profiles legend { overflow-wrap: anywhere; }
+.pb-profiles label, .pixai-bridge-panel details > label { margin: 5px 0; }
+.pb-preview, .pb-ledger { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow: auto; font-size: 11px; }
+.pixai-bridge-panel select, .pixai-bridge-panel textarea { max-width: 100%; min-width: 0; }
+.pb-stop { border: 2px solid #b54b39; font-weight: 700; }

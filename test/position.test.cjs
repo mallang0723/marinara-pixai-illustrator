@@ -31,6 +31,7 @@ test('stale tab position saves and reset preserve another tab OFF, model and pro
     stopped: false, ensureRunning() {}, recordStage() {},
     marinara: { storage: { patch: async p => { writes.push(JSON.parse(JSON.stringify(p))); Object.assign(stored, p); } } },
   });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings'), ctx);
   if (source.includes('function savePosition(')) vm.runInContext(helper('savePosition'), ctx);
   const persist = source.match(/const persist = \(value\) => \{[\s\S]*?\n  \};/)[0];
@@ -45,3 +46,10 @@ test('stale tab position saves and reset preserve another tab OFF, model and pro
     assert.deepEqual(ctx.settings.uiPosition, value);
   }
 });
+
+// v2 helpers use a shared storage lock and fresh reads; this single-tab fixture supplies both.
+function storageFixture(ctx) {
+  ctx.isLeader ??= true;
+  ctx.storageLock = async fn => fn({});
+  ctx.marinara.storage.get ??= async () => structuredClone(ctx.settings);
+}

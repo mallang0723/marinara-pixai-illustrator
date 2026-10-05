@@ -12,6 +12,7 @@ const { chromium } = createRequire(path.join(repo, 'package.json'))('@playwright
     await page.route('**/*', route => route.abort()); // hard network deny; not a Marinara instance
     await page.setContent('<!doctype html><html><body><p id="outside">fixture only</p></body></html>');
     await page.evaluate(() => {
+      Object.defineProperty(navigator, "locks", {value:{request:async(_n,_o,fn)=>fn({})}});
       window.saved = {};
       window.calls = [];
       window.logs = [];

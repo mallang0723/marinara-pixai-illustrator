@@ -40,6 +40,7 @@ async function drag(page, selector, dx, dy, touch) {
       await page.setContent('<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body><button id="outside">outside</button></body>');
       await page.addStyleTag({ content: css });
       await page.evaluate(() => {
+        Object.defineProperty(navigator, "locks", {value:{request:async(_n,_o,fn)=>fn({})}});
         window.saved = {}; window.writes = []; window.calls = 0;
         window.marinara = {
           storage: { get: async () => structuredClone(window.saved), patch: async p => {
@@ -51,6 +52,8 @@ async function drag(page, selector, dx, dy, touch) {
         };
       });
       await load(page);
+      assert.equal(await page.evaluate(()=>window.saved.schemaVersion),2);
+      await page.evaluate(()=>{window.writes=[];}); // count position writes separately from verified migration
       const initial = await inside(page, toggle);
       await drag(page, toggle, -100, -120, mobile);
       const moved = await inside(page, toggle);
@@ -93,7 +96,7 @@ async function drag(page, selector, dx, dy, touch) {
       if (mobile) {
         // Body swipes scroll the panel, not its fixed position or the page.
         const before = await page.locator(panel).boundingBox();
-        await drag(page, '.pixai-bridge-panel p', 0, -100, true);
+        await drag(page, '.pixai-bridge-panel > p:first-of-type', 0, -100, true);
         await page.waitForFunction(() => document.querySelector('.pixai-bridge-panel').scrollTop > 0);
         assert.deepEqual(await page.locator(panel).boundingBox(), before);
       }

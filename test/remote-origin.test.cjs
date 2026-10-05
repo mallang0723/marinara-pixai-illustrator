@@ -24,6 +24,7 @@ function fixture(fetch) {
   });
   vm.runInContext(['describeFetchError', 'truncatePrompt', 'parseLoras', 'ensureTaskAccess',
     'pixaiCreateTask', 'pixaiWaitTask', 'runDiagnostics', 'safeMediaUrl', 'pixaiDownload'].map(helper).join('\n'), ctx);
+  require('./coordinator-fixture.cjs')(ctx);
   return { ctx, calls, stages };
 }
 const completed = { status: 'completed', outputs: { mediaIds: ['123'], mediaUrls: ['https://d2doj8oszwtcqy.cloudfront.net/fixture.png'] }, paidQuota: 10 };
@@ -49,6 +50,11 @@ test('diagnostic 1 probes v2 without create and shares cached reachability with 
       ? new Response('', { status }) : new Response('{"id":"fixture"}'));
     await ctx.runDiagnostics(false);
     assert.deepEqual(calls.map(x => x.url), ['https://api.pixai.art/v2/task/0']);
+    if (status === 401) {
+      await assert.rejects(ctx.pixaiCreateTask('fixture', '', '1:1'));
+      assert.equal(calls.length, 1, 'v2 strict preflight blocks unauthorized create');
+      continue;
+    }
     await ctx.pixaiCreateTask('fixture', '', '1:1');
     await ctx.pixaiCreateTask('fixture', '', '1:1');
     assert.deepEqual(calls.map(x => x.method || 'GET'), ['GET', 'POST', 'POST']);

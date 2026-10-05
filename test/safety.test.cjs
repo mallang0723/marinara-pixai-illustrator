@@ -7,6 +7,7 @@ const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
 test('failed settings persistence cannot arm automatic billing', async () => {
   const ctx = vm.createContext({ stopRevision: 0, settings: { enabled: false, processedRunIds: [] }, MAX_REMEMBERED_RUNS: 500, saveQueue: Promise.resolve(),
     ensureRunning() {}, marinara: { storage: { patch: async () => { throw new Error('fixture storage failure'); } } } });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings'), ctx);
   await assert.rejects(ctx.saveSettings({ enabled: true }));
   assert.equal(ctx.settings.enabled, false);
@@ -39,6 +40,7 @@ test('paid diagnostics lock excludes double click and cleanup blocks the next st
     pixaiWaitTask: async () => { if (ctx.stopped) throw new Error('stopped'); return {}; },
     pixaiDownload: async () => { downloads++; },
   });
+  require('./coordinator-fixture.cjs')(ctx);
   vm.runInContext(helper('runDiagnostics'), ctx);
   const first = ctx.runDiagnostics(true);
   await new Promise(r => setImmediate(r));
@@ -82,3 +84,10 @@ test('untrusted media URLs cannot cause any browser fetch', async () => {
     assert.equal(calls, 0, url);
   }
 });
+
+// v2 helpers use a shared storage lock and fresh reads; this single-tab fixture supplies both.
+function storageFixture(ctx) {
+  ctx.isLeader ??= true;
+  ctx.storageLock = async fn => fn({});
+  ctx.marinara.storage.get ??= async () => structuredClone(ctx.settings);
+}

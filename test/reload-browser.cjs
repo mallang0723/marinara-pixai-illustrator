@@ -17,7 +17,7 @@ const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
         window.agentReads = 0;
         window.runs = [];
         Object.defineProperty(window, 'localStorage', { value: { getItem: () => 'chat' } });
-        Object.defineProperty(navigator, 'locks', { value: { request: async (name, options, cb) => cb(scenario === 'follower' ? null : {}) } });
+        Object.defineProperty(navigator, 'locks', { value: { request: async (name, options, cb) => cb(name === 'pixai-illustrator-single-runner' && scenario === 'follower' ? null : {}) } });
         window.marinara = {
           storage: { get: async () => structuredClone(window.saved), patch: async p => Object.assign(window.saved, structuredClone(p)) },
           fetch: async (url) => {
@@ -27,6 +27,9 @@ const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
               const agent = { id: 'director', name: 'PixAI Director', type: 'custom-fixture' };
               return new Response(JSON.stringify(scenario === 'duplicate-agent' ? [agent, agent] : [agent]));
             }
+            if (url === '/api/chats/chat') return new Response(JSON.stringify({id:'chat',mode:'conversation',characterIds:['char']}));
+            if (url === '/api/chats/chat/messages') return new Response(JSON.stringify([{id:'msg',role:'assistant',activeSwipeIndex:0,extra:{}}]));
+            if (url === '/api/characters/char') return new Response(JSON.stringify({id:'char',data:{name:'Fixture',appearance:'red hair'}}));
             if (url.includes('/agents/runs/')) return new Response(JSON.stringify(window.runs));
             if (url.endsWith('/v2/task/0')) return new Response('', { status: 404 });
             if (url.endsWith('/v2/image/create')) { window.created++; return new Response('{}', { status: 400 }); }
@@ -46,7 +49,7 @@ const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
       }
       if (scenario === 'on') await page.waitForFunction(() => document.querySelector('.pixai-bridge-status').textContent.startsWith('ON'));
       await page.evaluate(() => {
-        const run = { chatId: 'chat', agentConfigId: 'director', resultType: 'context_injection', resultData: { text: 'PIXAI_PROMPT: fixture' } };
+        const run = { chatId: 'chat', messageId:'msg', agentConfigId: 'director', resultType: 'context_injection', resultData: { text: 'PIXAI_PROMPT: fixture' } };
         window.runs = [{ ...run, id: 'new', createdAt: new Date(Date.now() + 1000).toISOString() }, { ...run, id: 'old', createdAt: '2000-01-01T00:00:00Z' }];
         window.tick();
       });

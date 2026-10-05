@@ -20,6 +20,7 @@ test('LoRA input survives settings and creates official modelId/weight payload w
       calls.push(JSON.parse(init.body)); return { ok: true, text: async () => '{"id":"fixture"}' };
     } },
   });
+  storageFixture(ctx);
   vm.runInContext(helper('truncatePrompt') + '\n' + helper('parseLoras') + '\n' + helper('saveSettings') + '\n' + helper('pixaiCreateTask'), ctx);
   await ctx.saveSettings({ loras: ctx.settings.loras });
   await ctx.pixaiCreateTask('fixture', '', '1:1');
@@ -55,3 +56,10 @@ test('mfetch sends public CSRF marker only on unsafe methods, preserving multipa
     assert.equal(init.credentials, 'same-origin');
   }
 });
+
+// v2 helpers use a shared storage lock and fresh reads; this single-tab fixture supplies both.
+function storageFixture(ctx) {
+  ctx.isLeader ??= true;
+  ctx.storageLock = async fn => fn({});
+  ctx.marinara.storage.get ??= async () => structuredClone(ctx.settings);
+}

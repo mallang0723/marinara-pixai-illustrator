@@ -16,7 +16,7 @@ function clickHandler(selector, next, ctx) {
 }
 test('failed panel save leaves key/session untouched and releases busy', async () => {
   let sessionWrites = 0;
-  const ctx = vm.createContext({ stopped: false, busy: false, apiKey: 'fixture-before', settings: { enabled: false },
+  const ctx = vm.createContext({ inflight: new Map(), stopRevision: 0, stopped: false, busy: false, apiKey: 'fixture-before', settings: { enabled: false },
     MAX_PROMPT_CHARS: 2000, SESSION_KEY_NAME: 'fixture-session',
     q: s => ({ value: s === '.pb-model' ? '123' : 'fixture-after', checked: s === '.pb-remember', children: [] }),
     parseLoras: () => [], saveSettings: async () => { throw new Error('fixture'); }, recordStage() {}, renderStatus() {},
@@ -50,6 +50,7 @@ test('reset during run-id persistence prevents unstarted candidates despite queu
     mfetch: async () => ({ ok: true, json: async () => Array.from({ length: 5 }, (_, id) => ({ ...run, id: String(id) })) }),
     processRun: async () => { creates++; },
     marinara: { storage: { patch: async () => { if (++writes === 1) await new Promise(r => { release = r; }); else throw new Error('stop persistence failed'); } } } });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings') + '\n' + helper('pollOnce'), ctx);
   const click = clickHandler('.pb-clear', '\nfunction renderStatus()', ctx);
   const poll = ctx.pollOnce();
@@ -71,6 +72,7 @@ test('reset lets the active run finish but prevents the remaining four candidate
     mfetch: async () => ({ ok: true, json: async () => Array.from({ length: 5 }, (_, id) => ({ ...run, id: String(id) })) }),
     processRun: async () => { creates++; await new Promise(r => { release = r; }); completed++; },
     marinara: { storage: { patch: async () => {} } } });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings') + '\n' + helper('pollOnce'), ctx);
   const click = clickHandler('.pb-clear', '\nfunction renderStatus()', ctx);
   const poll = ctx.pollOnce();
@@ -85,7 +87,7 @@ test('reset lets the active run finish but prevents the remaining four candidate
 });
 test('panel negative default truncates at a code-point boundary', async () => {
   let saved;
-  const ctx = vm.createContext({ stopped: false, busy: false, apiKey: '', settings: { enabled: false },
+  const ctx = vm.createContext({ inflight: new Map(), stopRevision: 0, stopped: false, busy: false, apiKey: '', settings: { enabled: false },
     MAX_PROMPT_CHARS: 2000, SESSION_KEY_NAME: 'fixture-session',
     q: s => ({ value: s === '.pb-model' ? '123' : 'a'.repeat(1999) + '😀', checked: false, children: [] }),
     parseLoras: () => [], saveSettings: async patch => { saved = patch; }, recordStage() {}, renderStatus() {},
@@ -130,7 +132,8 @@ test('create boundary also bounds default negative and normalizes invalid ratio'
 test('settings writes serialize and merge against latest committed state', async () => {
   const writes = []; let release;
   const ctx = vm.createContext({ stopRevision: 0, settings: { enabled: true, processedRunIds: [] }, saveQueue: Promise.resolve(), MAX_REMEMBERED_RUNS: 500,
-    ensureRunning() {}, marinara: { storage: { patch: async value => { writes.push(value); if (writes.length === 1) await new Promise(r => { release = r; }); } } } });
+    ensureRunning() {}, marinara: { storage: { patch: async value => { writes.push({ ...ctx.settings, ...value }); if (writes.length === 1) await new Promise(r => { release = r; }); } } } });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings'), ctx);
   const a = ctx.saveSettings({ processedRunIds: ['new-run'] });
   const b = ctx.saveSettings({ enabled: false });
@@ -151,6 +154,7 @@ test('background settings writes do not resend a stale remembered key', async ()
   const ctx = vm.createContext({ stopRevision: 0, settings: { apiKey: 'fixture-stale', rememberKey: true, processedRunIds: [] },
     saveQueue: Promise.resolve(), MAX_REMEMBERED_RUNS: 500, ensureRunning() {},
     marinara: { storage: { patch: async value => { written = value; } } } });
+  storageFixture(ctx);
   vm.runInContext(helper('saveSettings'), ctx);
   await ctx.saveSettings({ processedRunIds: ['run'] });
   assert.equal(Object.hasOwn(written, 'apiKey'), false);
@@ -178,3 +182,10 @@ test('agent ratio uses panel allowlist and prompt fields are bounded', () => {
   assert.equal(ctx.parseAgentText('SKIP'), null);
   assert.equal(ctx.parseAgentText({}), null);
 });
+
+// v2 helpers use a shared storage lock and fresh reads; this single-tab fixture supplies both.
+function storageFixture(ctx) {
+  ctx.isLeader ??= true;
+  ctx.storageLock = async fn => fn({});
+  ctx.marinara.storage.get ??= async () => structuredClone(ctx.settings);
+}
