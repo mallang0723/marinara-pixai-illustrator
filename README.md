@@ -45,7 +45,7 @@ ID가 정본이고 이름은 화면 표시 및 디렉터 이름 해석용입니�
 
 화풍·고정 외모·셀피 최소 구도를 먼저 예약합니다. 필수 태그만으로 2,000 UTF-16 단위를 넘으면 차단합니다. 남은 예산에서 장면을 먼저 확보하고 Appearance·Description·최근 대화의 낮은 우선순위 자료를 줄입니다. suffix에서도 화풍은 잘리지 않습니다. 코드포인트 경계는 지키지만 grapheme 묶음 전체 보존은 보장하지 않습니다. negative는 별도 2,000자입니다.
 
-PixAI style과 화풍 태그는 독립입니다. style은 `1983308862240288769` (Tsubaki.2)에만 전송하고 다른 ID에서는 선택을 보관하며 경고합니다. custom은 제품 상한 500자로 제한하고 2,000자 예산에서도 길이를 예약합니다. preset 내부 전개 길이는 알 수 없습니다. 35개 고정 목록은 설계와 대조했지만 이번 공개 문서 접근에서는 중첩 enum을 추출하지 못해 **공식 enum과의 완전 일치는 미확인**입니다. [공식 Create Image 문서](https://platform.pixai.art/en/docs/api-v2/image/createImage)의 style 설명은 확인했습니다.
+PixAI style과 화풍 태그는 독립입니다. style은 `1983308862240288769` (Tsubaki.2)에만 전송하고 다른 ID에서는 선택을 보관하며 경고합니다. custom은 제품 상한 500자로 제한하고 2,000자 예산에서도 길이를 예약합니다. preset 내부 전개 길이는 알 수 없습니다. 35개 고정 목록은 2026-10-05 [공식 Create Image 문서](https://platform.pixai.art/en/docs/api-v2/image/createImage)의 공개 HTML에서 추출한 목록과 개수·중복·set equality를 검사했습니다. 출처 fixture는 `test/fixtures/pixai-style-presets.json`입니다.
 
 페르소나는 **확장 외모 옵션 ON + 새 Director의 `PIXAI_PERSONA:true`**일 때만 읽습니다. 현재 채팅의 persona ID만 사용하며 solo 셀피에는 추가하지 않습니다. Agents의 `contextSources.persona`는 별도 옵션이고 동봉 JSON의 기본값은 false입니다. Director에서 ON이면 전체 페르소나 컨텍스트가 선택한 LLM에 전송될 수 있습니다. 확장 OFF는 그 전송을 철회하거나 이미 작성된 prompt의 묘사를 삭제하지 않습니다.
 
@@ -104,7 +104,7 @@ caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않
 - 자동 삽화는 클라이언트/서버 시계 동기화가 전제이며 활성 채팅을 4초 간격으로 감시합니다. 오래된 run은 재생성하지 않습니다.
 - 서버 idempotency/CAS가 없으므로 다기기 exactly-once 과금·다른 작성자와 attachment 원자 append는 보장하지 않습니다. 대상 swipe가 바뀌면 갤러리만 보존합니다.
 - CDN은 허용 HTTPS 호스트·MIME·20 MiB를 검사하고 redirect를 거부합니다. v1 media fallback은 Origin 정책으로 실패할 수 있습니다.
-- 이번 실행의 Chromium fixture는 환경의 소켓 권한 제한으로 시작하지 못했습니다. 브라우저 UI/실제 import/독립 검수·사용자 확인은 완료되지 않았습니다. 오프라인 통합 fixture는 실제 생성의 대체 증거가 아닙니다.
+- Chromium fixture 4개(기존 UI·reload·desktop/390px touch 위치·셀피 A)와 Node 테스트 71개가 통과했습니다. 별도 컨텍스트 자체 리뷰의 경쟁 조건 4건을 수정하고 재리뷰를 통과했습니다. 실제 Marinara UI import·실 PixAI 생성·정식 구현 검수·사용자 확인은 아직 남아 있습니다. 오프라인 fixture는 실제 생성의 대체 증거가 아닙니다.
 
 기존 Engine `node_modules`를 재사용하고 설치하지 않습니다:
 
@@ -147,3 +147,4 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-05 | README | 구버전 JSON 함수 오탐 안내 |
 | 2026-10-05 | README | 사전 확인 실패 턴 재시도 제한 안내 |
 | 2026-10-05 | README | 0.2.0 로컬 후보 범위·프로필·A/abort·평문 노출·브라우저 미검증 게이트 명시 |
+| 2026-10-05 | README | 브라우저·71개·공식 preset 검증 갱신 |
