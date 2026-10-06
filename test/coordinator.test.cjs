@@ -1,9 +1,9 @@
 const {test}=require('node:test');const assert=require('node:assert/strict');const {context}=require('./v2-helpers.cjs');
-test('strict preflight rejects all HTTP errors except real 404 before create',async()=>{
- for(const status of [401,403,429,500,200,404]){
+test('preflight HTTP response proves reachability; only 401/403 block create',async()=>{
+ for(const status of [400,401,403,404,422,500,429,200]){
  let creates=0;const c=context(['ensureTaskAccess','pixaiCreateTask','parseLoras','truncatePrompt'],{settings:{modelVersionId:'1',loras:[]},ASPECT_RATIOS:['1:1'],DEFAULTS:{aspectRatio:'1:1'},MAX_PROMPT_CHARS:2000,PIXAI_BASE:'https://fixture.invalid',taskAccessCheck:null,pixaiHeaders:()=>({}),recordStage(){},checkedFetch:async(url)=>url.endsWith('/0')?new Response('',{status}):(creates++,new Response('{"id":"t"}'))});
- if([200,404].includes(status))await c.pixaiCreateTask('scene','','1:1');else await assert.rejects(c.pixaiCreateTask('scene','','1:1'));
- assert.equal(creates,[200,404].includes(status)?1:0);
+ if(![401,403].includes(status))await c.pixaiCreateTask('scene','','1:1');else await assert.rejects(c.pixaiCreateTask('scene','','1:1'));
+ assert.equal(creates,[401,403].includes(status)?0:1);
  }
 });
 function coordinator(overrides={}) {

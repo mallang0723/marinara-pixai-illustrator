@@ -49,8 +49,8 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 | 명령 | 결과 |
 |---|---|
-| `node --test test/*.test.cjs` | PASS: 102/102, skip 0 |
-| `node --test --test-isolation=none test/*.test.cjs` | PASS: 102/102, skip 0 |
+| `node --test test/*.test.cjs` | PASS: 106/106, skip 0 |
+| `node --test --test-isolation=none test/*.test.cjs` | PASS: 106/106, skip 0 |
 | `node agent/validate-agent.mjs "$MARINARA_REPO"` | PASS: 실제 import·Zod, agent 1/functions 0, 능력 15개 OFF, persona OFF, prompt 일치 |
 | `node test/storage-export.mjs` | PASS: 실제 Engine 평문 저장/삭제, export에서 합성 키·프로필·ledger 제외 |
 | `node test/browser-test.cjs` | 부모 최종 직접 재실행 PASS: 키 기억/삭제/실패·회귀·외부 전송 0 |
@@ -91,7 +91,7 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 | 로컬 dist 파일 | SHA-256 |
 |---|---|
-| `marinara-pixai-illustrator-v0.2.0.zip` | `a2ee8b1bb90ede2fc3a5545c3119645841d5448bcf1f57916901db67d958c79c` |
+| `marinara-pixai-illustrator-v0.2.0.zip` | `0bc74556a1d63c576822f3452221f22ab1df733c707568673aef851c4d5e9233` |
 | `pixai-director.agent.json` | `805bbbddb4ab80eb667451c6fca6301809ddaeef2d8a0c8aa558315972794152` |
 
 `dist/SHA256SUMS`와 함께 로컬 생성했습니다. dist는 gitignore 대상입니다. ZIP에 설계는 포함하고, 해시 자기참조를 피하려고 이 구현 기록은 포함하지 않습니다. 실제 import/배포 승인을 의미하지 않습니다.
@@ -149,6 +149,23 @@ SYHO-88의 조건부 판정 후 필수 수정만 반영했습니다. 위의 C1�
 - **독립 수용 검사:** 부모가 작성한 `test/diagnostics-browser.cjs`는 전체 확장과 실제 UI 버튼/로그를 390px Chromium에서 실행합니다. 401/403 본문에 비밀 sentinel을 넣어 코드만 보이는지, 실패→재조회→성공 캐시→동일키 저장→키 변경을 순서대로 확인합니다. 초기 harness의 모델 입력은 preset 상태에서 disabled여서 custom 선택을 추가했습니다. 실제 외부 전송은 차단했고 create 0회입니다.
 - **한계:** Safari 실기 원인은 아직 미확정입니다. 새 ZIP으로 진단 1부터 재시험하여 표시된 단계·코드로 확인해야 합니다. 실제 유료 생성·계정·키 유효성을 이 오프라인 결과로 주장하지 않습니다. 0.2.1 이월 R1 세부 원인 분류/R4 카드 조회 폴백은 확대 구현하지 않았습니다.
 
+## 추가 요청 (c): preflight 판정표 정정 — 2026-10-06
+
+직전 (a)(b) 수정은 유지하면서, 이전 strict preflight 계약을 아래 승인된 판정으로 대체했습니다. `/v2/task/0`의 유효 키 응답은 실측하지 않았으므로 특정 상태가 정상이라고 가정하지 않습니다. **도달성·인증 차단·캐시 재사용은 서로 다른 판정**입니다.
+
+| HTTP 응답 | CORS 도달성 | 생성 전 차단 | 캐시 재사용 |
+|---|---|---|---|
+| 400 | 통과 | 안 함 | 안 함 |
+| 401 | 응답 수신 | 키 확인 필요로 차단 | 안 함 |
+| 403 | 응답 수신 | 키 확인 필요로 차단 | 안 함 |
+| 404 | 통과 | 안 함 | 함 |
+| 422 | 통과 | 안 함 | 안 함 |
+| 500 | 통과 | 안 함 | 안 함 |
+
+2xx는 허용·캐시, 나머지 유효 HTTP 상태도 인증 차단 두 코드를 제외하고 허용·비캐시입니다. 응답을 읽지 못한 네트워크/CORS/timeout과 잘못된 status 값은 차단합니다. 모든 HTTP 코드를 preflight 로그에 남기되 성공적인 task 조회/생성을 보장하지 않는다는 안내를 붙입니다. 실제 create/poll의 오류 처리·영수증·중복 과금 방지·원격 본문 비노출은 변경하지 않았습니다.
+
+`test/preflight-errors.test.cjs`에 요청된 6개 상태별 생성 횟수·로그·캐시 표를 고정했습니다. 먼저 400/422/500 차단과 401/403 안내 불일치를 RED로 확인하고 수정했습니다. 이전 429/500 전면 차단 assertion은 새 승인에 맞춰 변경했으며 네트워크 차단은 유지합니다. 전체 106/106(두 isolation 모드), 기존 Chromium 5종 직접 재실행 PASS. (a)(b)의 오류 비노출·저장/키 변경 캐시 무효화도 계속 통과합니다. Safari 실기 및 실제 유료 생성은 수행하지 않았습니다.
+
 ## 리비전 이력
 
 | 날짜 | 변경 |
@@ -158,3 +175,4 @@ SYHO-88의 조건부 판정 후 필수 수정만 반영했습니다. 위의 C1�
 | 2026-10-05 | 경쟁 수정·71개·브라우저·목록·커밋 검증 |
 | 2026-10-06 | 조건부 검수 수정·82개·새 해시 반영 |
 | 2026-10-06 | 진단·캐시 수정 및 102개·브라우저 검증 |
+| 2026-10-06 | (c) HTTP 판정표·106개 회귀 반영 |

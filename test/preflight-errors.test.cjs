@@ -162,7 +162,7 @@ test('selfie error response displays own validation, redacts runtime errors and 
   } finally { cleanup(); }
 });
 
-for (const failure of [401, 403, 429, 500, 'network']) test(`preflight ${failure} retries next call and never creates`, async () => {
+for (const failure of [401, 403, 'network']) test(`preflight ${failure} retries next call and never creates`, async () => {
   const f = fixture(async () => {
     if (failure === 'network') throw new TypeError(secret);
     return new Response(secret, { status: failure });
@@ -170,6 +170,23 @@ for (const failure of [401, 403, 429, 500, 'network']) test(`preflight ${failure
   for (let i = 0; i < 2; i++) await assert.rejects(f.c.pixaiCreateTask(secret, '', '1:1'));
   assert.equal(f.calls.length, 2);
   assert.ok(f.calls.every(([url]) => url.endsWith('/0')));
+});
+
+for (const status of [400, 401, 403, 404, 422, 500]) test(`preflight policy table HTTP ${status}: creation, log and cache`, async () => {
+  const f = fixture(async url => url.endsWith('/0')
+    ? new Response(secret, { status }) : Response.json({ id: 'task' }));
+  for (let i = 0; i < 2; i++) {
+    if ([401, 403].includes(status)) {
+      await assert.rejects(f.c.pixaiCreateTask(secret, '', '1:1'), error => {
+        assert.match(f.c.describeFetchError(error), /키 확인 필요/);
+        return true;
+      });
+    } else await f.c.pixaiCreateTask(secret, '', '1:1');
+  }
+  assert.equal(f.calls.filter(([, init]) => init.method === 'POST').length, [401, 403].includes(status) ? 0 : 2);
+  assert.equal(f.calls.filter(([url]) => url.endsWith('/0')).length, status === 404 ? 1 : 2);
+  assert.ok(f.stages.some(([stage, , detail]) => stage === 'pixai.preflight GET' && detail.includes(`HTTP ${status}`)));
+  assert.equal(JSON.stringify(f.stages).includes(secret), false);
 });
 
 test('2xx/404 success reuse and concurrent probes share one in-flight request', async () => {
@@ -208,7 +225,7 @@ test('key identity alone invalidates success; invalid status values cannot be tr
   f.c.apiKey = 'synthetic-key-b';
   await f.c.ensureTaskAccess();
   assert.equal(f.calls.length, 2);
-  for (const status of [0, 302, secret, '200', 200.5, undefined]) {
+  for (const status of [0, secret, '200', 200.5, undefined]) {
     const g = fixture(async () => ({ status }));
     for (let i = 0; i < 2; i++) await assert.rejects(g.c.ensureTaskAccess());
     assert.equal(g.calls.length, 2);

@@ -61,7 +61,9 @@ PixAI style과 화풍 태그는 독립입니다. style은 `1983308862240288769` 
 
 [PixAI 모델 페이지](https://pixai.art)의 주소 마지막 숫자인 **버전 ID**를 사용합니다. LoRA 항목은 `{modelId:"버전ID",weight:0.7}`입니다. 다른 모델에서는 Tsubaki 전용 mode를 `(none)`으로 설정하세요. 모델·LoRA·모드의 실제 지원/비용은 계정과 서비스 정책에 따라 다릅니다. Tsubaki.3 ID를 추정해 추가하지 않습니다.
 
-모든 유료 입구(자동 삽화·셀피·진단 2)는 한 조정기와 `pixai-illustrator-single-runner` 잠금을 사용합니다. 결과 접근 확인 `GET /v2/task/0`은 **2xx 또는 실제 404만** 허용합니다. 401/403/429/5xx·CORS·timeout이면 create 0회입니다. 성공만 세션 캐시에 보관하고 실패는 다음 시도에서 다시 조회합니다. 키 변경·설정 저장·재실행은 성공 캐시도 무효화합니다. 실제 task 조회는 v2의 404에서만 v1으로 폴백합니다.
+모든 유료 입구(자동 삽화·셀피·진단 2)는 한 조정기와 `pixai-illustrator-single-runner` 잠금을 사용합니다. `GET /v2/task/0`은 **읽을 수 있는 HTTP 응답을 받으면 CORS 접근 통과**로 봅니다. 401/403은 **키 확인 필요**로 생성 차단하고, 나머지 HTTP 상태(400/404/422/429/500 포함)는 코드를 기록하되 생성은 차단하지 않습니다. 네트워크/CORS/timeout으로 응답을 읽지 못하면 생성 차단합니다. 이 확인은 실제 task 조회·키 유효성·생성 성공 보장이 아닙니다.
+
+캐시 재사용은 2xx/404만 유지합니다. 그 밖의 응답은 생성 허용 여부와 별개로 캐시하지 않아 다음 호출에서 다시 조회합니다. 키 변경·설정 저장·재실행은 성공 캐시도 무효화합니다. **실제 task 조회**는 여전히 v2의 404에서만 v1으로 폴백하고, 그 밖의 오류는 중단합니다.
 
 진단 실패 시 `pixai.preflight GET`와 `diag`의 HTTP 코드 또는 확장 검증 문구를 확인하세요. 임의 오류 원문·원격 응답 본문·키·프롬프트는 표시하지 않습니다. 브라우저가 응답을 숨긴 네트워크/CORS 오류에서는 HTTP 코드를 알 수 없으며 401/403으로 추정하지 않습니다. 설정을 고친 뒤 **진단 1(GET만)**부터 다시 확인하세요.
 
@@ -108,7 +110,7 @@ caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않
 - 자동 삽화는 클라이언트/서버 시계 동기화가 전제이며 활성 채팅을 4초 간격으로 감시합니다. 오래된 run은 재생성하지 않습니다.
 - 서버 idempotency/CAS가 없으므로 다기기 exactly-once 과금·다른 작성자와 attachment 원자 append는 보장하지 않습니다. 대상 swipe가 바뀌면 갤러리만 보존합니다.
 - CDN은 허용 HTTPS 호스트·MIME·20 MiB를 검사하고 redirect를 거부합니다. v1 media fallback은 Origin 정책으로 실패할 수 있습니다.
-- Chromium fixture 5개(기존 UI·reload·desktop/390px touch 위치·셀피 A·진단)와 Node 테스트 102개가 통과했습니다. OFF 중 과금 작업 보존에 이어 안전한 오류 표시·preflight 재시도/캐시 무효화를 수정했습니다. iPhone Safari/Tailscale HTTPS의 실제 실패 상태는 아직 확인하지 못했으며, 합성 Chromium 검증은 해당 환경이나 실 생성 성공을 증명하지 않습니다. 새 후보의 한정 재검수·사용자 실기 확인은 남아 있습니다.
+- Chromium fixture 5개(기존 UI·reload·desktop/390px touch 위치·셀피 A·진단)와 Node 테스트 106개가 통과했습니다. OFF 중 과금 작업 보존·안전한 오류 표시·캐시 무효화를 유지하고, preflight HTTP 판정표를 정정했습니다. iPhone Safari/Tailscale HTTPS의 실제 실패 상태는 아직 확인하지 못했으며, 합성 Chromium 검증은 해당 환경이나 실 생성 성공을 증명하지 않습니다. 새 후보의 한정 재검수·사용자 실기 확인은 남아 있습니다.
 
 기존 Engine `node_modules`를 재사용하고 설치하지 않습니다. 아래 명령은 확장 저장소 루트에서 실행합니다. 예시 Engine 경로가 다르면 첫 줄을 실제 체크아웃으로 바꾸세요:
 
@@ -156,3 +158,4 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-05 | README | 브라우저·71개·공식 preset 검증 갱신 |
 | 2026-10-06 | README | 기능 OFF 의미·검증 환경변수 명시 |
 | 2026-10-06 | README | 진단 오류·캐시 재시도·검증 한계 정리 |
+| 2026-10-06 | README | HTTP 도달성·인증 차단 판정 정정 |

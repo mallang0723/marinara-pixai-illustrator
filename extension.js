@@ -346,7 +346,7 @@ async function ensureTaskAccess() {
     taskAccessCheck = { authorization: headers.Authorization, promise: (async () => {
       try {
         // Authorization triggers the same preflight as polling. No task is created.
-        // Only 2xx or a real missing task (404) permits generation.
+        // Any readable HTTP response proves reachability, not task/key validity.
         const res = await checkedFetch(`${PIXAI_BASE}/v2/task/0`, { headers, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
         return { status: res.status };
       } catch (err) {
@@ -356,9 +356,12 @@ async function ensureTaskAccess() {
   }
   const check = taskAccessCheck;
   const result = await check.promise;
-  const accessible = !result.failed && Number.isInteger(result.status) && ((result.status >= 200 && result.status < 300) || result.status === 404);
+  const httpReceived = !result.failed && Number.isInteger(result.status) && result.status >= 100 && result.status <= 599;
+  const authBlocked = result.status === 401 || result.status === 403;
+  const accessible = httpReceived && !authBlocked;
+  const cacheable = accessible && ((result.status >= 200 && result.status < 300) || result.status === 404);
   // An old request must never clear a newer key/save's in-flight or successful probe.
-  if (!accessible && taskAccessCheck === check) taskAccessCheck = null;
+  if (!cacheable && taskAccessCheck === check) taskAccessCheck = null;
   if (result.failed) {
     const detail = result.error instanceof TypeError
       ? "PixAI 결과 조회 연결을 확인하지 못했습니다 (네트워크/CORS 오류 가능). 연결을 확인하고 다시 시도하세요. 생성 요청은 보내지 않았습니다."
@@ -366,8 +369,11 @@ async function ensureTaskAccess() {
     recordStage("pixai.preflight GET", false, detail);
     throw result.error;
   }
-  recordStage("pixai.preflight GET", accessible, httpStatus(result.status));
-  if (!accessible) throw bridgeError(`조회 사전 확인 ${httpStatus(result.status)} — 생성하지 않았습니다.`);
+  const detail = authBlocked ? `${httpStatus(result.status)} — 키 확인 필요` : httpReceived
+    ? `${httpStatus(result.status)} — HTTP 응답 수신(CORS 통과); 실제 작업 조회·생성 성공은 미확인`
+    : httpStatus(result.status);
+  recordStage("pixai.preflight GET", accessible, detail);
+  if (!accessible) throw bridgeError(`조회 사전 확인 ${detail} — 생성하지 않았습니다.`);
   return result.status;
 }
 
