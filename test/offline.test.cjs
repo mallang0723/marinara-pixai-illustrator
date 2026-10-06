@@ -38,10 +38,7 @@ test('LoRA input survives settings and creates official modelId/weight payload w
   assert.deepEqual(calls[2].loras, [{ modelId: '1744880666293972790', weight: 1 }]);
 });
 function helper(name) {
-  const start = source.search(new RegExp(`(?:async )?function ${name}\\(`));
-  assert.notEqual(start, -1, `missing helper ${name}`);
-  const next = source.indexOf('\n}', start);
-  return source.slice(start, next + 2);
+  return require('./v2-helpers.cjs').helper(name);
 }
 test('mfetch sends public CSRF marker only on unsafe methods, preserving multipart boundary', async () => {
   const calls = [];

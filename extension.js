@@ -45,26 +45,26 @@ const V2_DEFAULTS = {
 };
 
 async function storageLock(fn) {
-  if (!navigator.locks?.request) throw new Error("저장 잠금 미지원 — localhost/HTTPS에서 사용하세요.");
+  if (!navigator.locks?.request) throw bridgeError("저장 잠금 미지원 — localhost/HTTPS에서 사용하세요.");
   return navigator.locks.request("pixai-illustrator-storage", {}, fn);
 }
 
 function validateStorage(stored) {
-  if (!stored || typeof stored !== "object" || Array.isArray(stored) || (stored.schemaVersion !== undefined && stored.schemaVersion !== 2)) throw new Error("저장소 버전/형식 오류");
-  for (const key of ["enabled","rememberKey","selfieInterceptEnabled","personaAppearanceEnabled","characterSelfieRecoveryEnabled","selfieUseRecentContext"]) if (stored[key] !== undefined && typeof stored[key] !== "boolean") throw new Error("옵션 형식 오류");
-  if (stored.styleTags !== undefined && typeof stored.styleTags !== "string") throw new Error("화풍 형식 오류");
-  if (stored.styleTagsPosition !== undefined && !["prefix","suffix"].includes(stored.styleTagsPosition)) throw new Error("화풍 위치 오류");
-  if (stored.stopEpoch !== undefined && (!Number.isSafeInteger(stored.stopEpoch) || stored.stopEpoch < 0)) throw new Error("중지 버전 오류");
+  if (!stored || typeof stored !== "object" || Array.isArray(stored) || (stored.schemaVersion !== undefined && stored.schemaVersion !== 2)) throw bridgeError("저장소 버전/형식 오류");
+  for (const key of ["enabled","rememberKey","selfieInterceptEnabled","personaAppearanceEnabled","characterSelfieRecoveryEnabled","selfieUseRecentContext"]) if (stored[key] !== undefined && typeof stored[key] !== "boolean") throw bridgeError("옵션 형식 오류");
+  if (stored.styleTags !== undefined && typeof stored.styleTags !== "string") throw bridgeError("화풍 형식 오류");
+  if (stored.styleTagsPosition !== undefined && !["prefix","suffix"].includes(stored.styleTagsPosition)) throw bridgeError("화풍 위치 오류");
+  if (stored.stopEpoch !== undefined && (!Number.isSafeInteger(stored.stopEpoch) || stored.stopEpoch < 0)) throw bridgeError("중지 버전 오류");
   for (const key of ["characterProfiles","personaProfiles"]) if (stored[key] !== undefined) {
-    if (!stored[key] || typeof stored[key] !== "object" || Array.isArray(stored[key])) throw new Error("프로필 형식 오류");
+    if (!stored[key] || typeof stored[key] !== "object" || Array.isArray(stored[key])) throw bridgeError("프로필 형식 오류");
     for (const [id,row] of Object.entries(stored[key])) {
-      if (["__proto__","constructor","prototype"].includes(id) || !row || typeof row !== "object" || Array.isArray(row) || typeof row.fixedTags !== "string") throw new Error("프로필 행 형식 오류");
-      if (row.aliases !== undefined && (!Array.isArray(row.aliases) || row.aliases.some(v=>typeof v !== "string"))) throw new Error("별칭 형식 오류");
+      if (["__proto__","constructor","prototype"].includes(id) || !row || typeof row !== "object" || Array.isArray(row) || typeof row.fixedTags !== "string") throw bridgeError("프로필 행 형식 오류");
+      if (row.aliases !== undefined && (!Array.isArray(row.aliases) || row.aliases.some(v=>typeof v !== "string"))) throw bridgeError("별칭 형식 오류");
       if (row.loras !== undefined) parseLoras(row.loras);
     }
   }
   if (stored.operationLedger !== undefined) {
-    const fail = () => { throw new Error("작업 기록 형식 오류"); };
+    const fail = () => { throw bridgeError("작업 기록 형식 오류"); };
     const object = value => value && typeof value === "object" && !Array.isArray(value);
     const id = value => typeof value === "string" && value.length > 0 && value.trim() === value;
     const anchorId = value => id(value) && /^[A-Za-z0-9_-]{1,128}$/.test(value);
@@ -97,12 +97,12 @@ async function migrateSettings() {
   return storageLock(async () => {
     const stored = await marinara.storage.get();
     validateStorage(stored);
-    if (!stored || typeof stored !== "object" || Array.isArray(stored)) throw new Error("저장소 형식 오류");
-    if (stored.schemaVersion !== undefined && stored.schemaVersion !== 2) throw new Error("지원하지 않는 저장소 버전");
+    if (!stored || typeof stored !== "object" || Array.isArray(stored)) throw bridgeError("저장소 형식 오류");
+    if (stored.schemaVersion !== undefined && stored.schemaVersion !== 2) throw bridgeError("지원하지 않는 저장소 버전");
     for (const key of ["characterProfiles", "personaProfiles"]) {
-      if (stored[key] !== undefined && (!stored[key] || typeof stored[key] !== "object" || Array.isArray(stored[key]))) throw new Error("프로필 형식 오류");
+      if (stored[key] !== undefined && (!stored[key] || typeof stored[key] !== "object" || Array.isArray(stored[key]))) throw bridgeError("프로필 형식 오류");
     }
-    if (stored.operationLedger !== undefined && !Array.isArray(stored.operationLedger)) throw new Error("작업 기록 형식 오류");
+    if (stored.operationLedger !== undefined && !Array.isArray(stored.operationLedger)) throw bridgeError("작업 기록 형식 오류");
     if (stored.schemaVersion === 2) return stored;
     const patch = {};
     for (const [key, value] of Object.entries(V2_DEFAULTS)) if (!Object.hasOwn(stored, key)) patch[key] = structuredClone(value);
@@ -136,7 +136,7 @@ let settings = { ...DEFAULTS, ...loadedSettings };
 settings.enabled = settings.enabled === true; // restore only an explicitly saved ON
 let apiKey = settings.rememberKey !== false && typeof settings.apiKey === "string" ? settings.apiKey : "";
 let busy = false;
-let taskAccessCheck = null; // Promise cached for this extension session, never persisted.
+let taskAccessCheck = null; // In-flight or successful access for these credentials; never persisted.
 let stopped = false;
 const startedAt = Date.now();
 const sessionSeen = new Set();
@@ -219,10 +219,10 @@ async function saveSettings(patch, { emergency = false } = {}) {
   const write = saveQueue.then(async () => {
     ensureRunning();
     const allowed = new Set(["apiKey", "rememberKey", "enabled", "selfieInterceptEnabled", "characterSelfieRecoveryEnabled", "personaAppearanceEnabled", "selfieUseRecentContext", "modelVersionId", "loras", "aspectRatio", "size", "mode", "promptHelper", "negativeDefault", "styleTags", "styleTagsPosition", "pixaiStyle", "processedRunIds"]);
-    if (Object.keys(patch).some(k => !allowed.has(k))) throw new Error("설정 소유 키 오류");
+    if (Object.keys(patch).some(k => !allowed.has(k))) throw bridgeError("설정 소유 키 오류");
     if (!Object.keys(patch).length) return;
     const offOnly = Object.entries(patch).every(([k,v]) => ["enabled", "selfieInterceptEnabled", "characterSelfieRecoveryEnabled", "personaAppearanceEnabled", "selfieUseRecentContext", "rememberKey"].includes(k) ? v === false : k === "apiKey" && v === "");
-    if (!isLeader && !offOnly) throw new Error("설정은 실행 탭에서 저장하세요. OFF·긴급 중지·키 삭제는 모든 탭에서 가능합니다.");
+    if (!isLeader && !offOnly) throw bridgeError("설정은 실행 탭에서 저장하세요. OFF·긴급 중지·키 삭제는 모든 탭에서 가능합니다.");
     await storageLock(async () => {
       const fresh = await marinara.storage.get();
       const owned = { ...patch };
@@ -235,6 +235,7 @@ async function saveSettings(patch, { emergency = false } = {}) {
       if (emergency) owned.stopEpoch = (fresh.stopEpoch || 0) + 1;
       if (owned.processedRunIds) owned.processedRunIds = owned.processedRunIds.slice(-MAX_REMEMBERED_RUNS);
       await marinara.storage.patch(owned);
+      if (Object.keys(owned).some(key => key !== "processedRunIds")) taskAccessCheck = null;
       Object.assign(settings, owned);
       settings.stopEpoch = owned.stopEpoch ?? fresh.stopEpoch ?? 0;
       if (revision !== stopRevision) { settings.enabled = false; settings.selfieInterceptEnabled = false; }
@@ -245,7 +246,7 @@ async function saveSettings(patch, { emergency = false } = {}) {
 }
 
 async function saveProfile(map, id, row) {
-  if (!isLeader || !["characterProfiles", "personaProfiles"].includes(map) || !id || ["__proto__", "constructor", "prototype"].includes(id)) throw new Error("프로필 저장 대상 오류");
+  if (!isLeader || !["characterProfiles", "personaProfiles"].includes(map) || !id || ["__proto__", "constructor", "prototype"].includes(id)) throw bridgeError("프로필 저장 대상 오류");
   const write = saveQueue.then(() => storageLock(async () => {
     ensureRunning();
     const fresh = await marinara.storage.get();
@@ -282,7 +283,23 @@ function pixaiHeaders(json = false) {
   return h;
 }
 
+function bridgeError(message) {
+  // Only audited, extension-owned text belongs here: no keys, prompts, IDs,
+  // names, LoRA input, or remote body/status text. Identity prevents lookalike
+  // runtime/remote errors from being trusted; retain text even if message mutates.
+  const error = new Error(message);
+  bridgeError.messages ??= new WeakMap();
+  bridgeError.messages.set(error, message);
+  return error;
+}
+
+function httpStatus(status) {
+  return Number.isInteger(status) && status >= 100 && status <= 599 ? `HTTP ${status}` : "HTTP 상태 확인 불가";
+}
+
 function describeFetchError(err) {
+  const trusted = bridgeError.messages?.get(err);
+  if (trusted !== undefined) return trusted;
   // A CORS block surfaces as TypeError("Failed to fetch") with no status.
   if (err instanceof TypeError) return "네트워크/CORS 오류 가능 — Network 탭 확인";
   if (err?.name === "AbortError" || err?.name === "TimeoutError") return "중지/시간 초과 — 과금 여부 확인 전 재시도 금지";
@@ -294,20 +311,20 @@ function parseLoras(input) {
   const entries = typeof input === "string"
     ? (input.trim() ? input.split(",").map((entry) => {
       const parts = entry.trim().split(":");
-      if (parts.length !== 2) throw new Error("LoRA 형식 오류");
+      if (parts.length !== 2) throw bridgeError("LoRA 형식 오류");
       return { modelId: parts[0].trim(), weight: parts[1].trim() };
     }) : []) : input;
-  if (!Array.isArray(entries)) throw new Error("LoRA 목록 형식 오류");
-  if (entries.length > 5) throw new Error("LoRA는 최대 5개입니다.");
+  if (!Array.isArray(entries)) throw bridgeError("LoRA 목록 형식 오류");
+  if (entries.length > 5) throw bridgeError("LoRA는 최대 5개입니다.");
   const seen = new Set();
   return entries.map((entry) => {
     const modelId = entry?.modelId;
-    if (typeof modelId !== "string" || !/^[1-9]\d*$/.test(modelId)) throw new Error("LoRA ID는 양의 정수 문자열이어야 합니다.");
+    if (typeof modelId !== "string" || !/^[1-9]\d*$/.test(modelId)) throw bridgeError("LoRA ID는 양의 정수 문자열이어야 합니다.");
     const raw = String(entry.weight ?? "");
-    if (!/^(\d+(?:\.\d+)?|\.\d+)$/.test(raw)) throw new Error("LoRA weight는 숫자여야 합니다.");
+    if (!/^(\d+(?:\.\d+)?|\.\d+)$/.test(raw)) throw bridgeError("LoRA weight는 숫자여야 합니다.");
     const weight = Number(raw);
-    if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw new Error("LoRA weight는 0~1이어야 합니다.");
-    if (seen.has(modelId)) throw new Error("LoRA ID가 중복되었습니다.");
+    if (!Number.isFinite(weight) || weight < 0 || weight > 1) throw bridgeError("LoRA weight는 0~1이어야 합니다.");
+    if (seen.has(modelId)) throw bridgeError("LoRA ID가 중복되었습니다.");
     seen.add(modelId);
     return { modelId, weight };
   });
@@ -324,32 +341,38 @@ function truncatePrompt(value) {
 }
 
 async function ensureTaskAccess() {
-  if (!taskAccessCheck) {
-    taskAccessCheck = (async () => {
+  const headers = pixaiHeaders();
+  if (!taskAccessCheck || taskAccessCheck.authorization !== headers.Authorization) {
+    taskAccessCheck = { authorization: headers.Authorization, promise: (async () => {
       try {
         // Authorization triggers the same preflight as polling. No task is created.
-        // A missing task (404) or unauthorized key (401) still proves CORS access.
-        const res = await checkedFetch(`${PIXAI_BASE}/v2/task/0`, { headers: pixaiHeaders(), credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
+        // Only 2xx or a real missing task (404) permits generation.
+        const res = await checkedFetch(`${PIXAI_BASE}/v2/task/0`, { headers, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
         return { status: res.status };
       } catch (err) {
-        return { error: err };
+        return { failed: true, error: err };
       }
-    })();
+    })() };
   }
-  const result = await taskAccessCheck;
-  if (result.error) {
+  const check = taskAccessCheck;
+  const result = await check.promise;
+  const accessible = !result.failed && Number.isInteger(result.status) && ((result.status >= 200 && result.status < 300) || result.status === 404);
+  // An old request must never clear a newer key/save's in-flight or successful probe.
+  if (!accessible && taskAccessCheck === check) taskAccessCheck = null;
+  if (result.failed) {
     const detail = result.error instanceof TypeError
-      ? "PixAI 결과 조회 연결을 확인하지 못했습니다 (네트워크/CORS 오류 가능). 연결을 확인하고 새로고침 후 다시 시도하세요. 생성 요청은 보내지 않았습니다."
+      ? "PixAI 결과 조회 연결을 확인하지 못했습니다 (네트워크/CORS 오류 가능). 연결을 확인하고 다시 시도하세요. 생성 요청은 보내지 않았습니다."
       : `결과 조회 사전 확인 실패 — 생성 요청은 보내지 않았습니다. ${describeFetchError(result.error)}`;
     recordStage("pixai.preflight GET", false, detail);
     throw result.error;
   }
-  if (!((result.status >= 200 && result.status < 300) || result.status === 404)) throw new Error(`조회 사전 확인 HTTP ${result.status} — 생성하지 않았습니다.`);
+  recordStage("pixai.preflight GET", accessible, httpStatus(result.status));
+  if (!accessible) throw bridgeError(`조회 사전 확인 ${httpStatus(result.status)} — 생성하지 않았습니다.`);
   return result.status;
 }
 
 async function pixaiCreateTask(prompt, negativePrompt, aspectRatio, options = settings, composed = null, beforePost = null) {
-  if (typeof options.modelVersionId !== "string" || !/^[1-9]\d*$/.test(options.modelVersionId)) throw new Error("모델 ID는 양의 정수 문자열이어야 합니다.");
+  if (typeof options.modelVersionId !== "string" || !/^[1-9]\d*$/.test(options.modelVersionId)) throw bridgeError("모델 ID는 양의 정수 문자열이어야 합니다.");
   const loras = parseLoras(composed?.loras || options.loras);
   const body = {
     modelVersionId: options.modelVersionId,
@@ -374,13 +397,13 @@ async function pixaiCreateTask(prompt, negativePrompt, aspectRatio, options = se
     recordStage("pixai.create POST", false, describeFetchError(err));
     throw err;
   }
-  const text = await res.text();
   if (!res.ok) {
-    recordStage("pixai.create POST", false, `HTTP ${res.status}`);
-    throw new Error(`create failed ${res.status}`);
+    recordStage("pixai.create POST", false, httpStatus(res.status));
+    throw bridgeError(`생성 요청 실패 ${httpStatus(res.status)}`);
   }
+  const text = await res.text();
   const task = JSON.parse(text);
-  recordStage("pixai.create POST", true, `task ${task.id} status=${task.status}`);
+  recordStage("pixai.create POST", true, "생성 요청 접수 응답 수신");
   return task;
 }
 
@@ -401,26 +424,26 @@ async function pixaiWaitTask(taskId) {
       throw err;
     }
     if (!res.ok) {
-      recordStage("pixai.task GET", false, `HTTP ${res.status}`);
-      throw new Error(`task poll failed ${res.status}`);
+      recordStage("pixai.task GET", false, httpStatus(res.status));
+      throw bridgeError(`결과 조회 실패 ${httpStatus(res.status)}`);
     }
     const task = await res.json();
     if (task.status === "completed") {
-      recordStage("pixai.task GET", true, `completed, media=${(task.outputs?.mediaUrls || []).length}`);
+      recordStage("pixai.task GET", true, "completed");
       return task;
     }
     if (task.status === "failed" || task.status === "cancelled") {
-      recordStage("pixai.task GET", false, `status=${task.status}`);
-      throw new Error(`task ${task.status}`);
+      recordStage("pixai.task GET", false, "작업 실패 또는 취소");
+      throw bridgeError("작업 실패 또는 취소");
     }
   }
   recordStage("pixai.task GET", false, "timeout");
-  throw new Error("task timeout");
+  throw bridgeError("task timeout");
 }
 
 function safeMediaUrl(value) {
   const url = new URL(value);
-  if (url.protocol !== "https:" || url.username || url.password || url.port || !["d2doj8oszwtcqy.cloudfront.net", "api.pixai.art"].includes(url.hostname)) throw new Error("허용되지 않은 이미지 호스트");
+  if (url.protocol !== "https:" || url.username || url.password || url.port || !["d2doj8oszwtcqy.cloudfront.net", "api.pixai.art"].includes(url.hostname)) throw bridgeError("허용되지 않은 이미지 호스트");
   return url.href;
 }
 
@@ -441,10 +464,10 @@ async function pixaiDownload(task) {
       : "";
     try {
       const res = await checkedFetch(a.url, { headers: a.headers, credentials: "omit", referrerPolicy: "no-referrer", redirect: "error" });
-      if (!res.ok) { recordStage(`pixai.download (${a.label})`, false, `HTTP ${res.status}${legacyHint}`); lastErr = new Error(`HTTP ${res.status}`); continue; }
+      if (!res.ok) { recordStage(`pixai.download (${a.label})`, false, httpStatus(res.status) + legacyHint); lastErr = bridgeError(httpStatus(res.status)); continue; }
       const mime = (res.headers.get("content-type") || "").split(";")[0].toLowerCase();
-      if (!["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"].includes(mime)) throw new Error("이미지 MIME 오류");
-      if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) throw new Error("이미지 크기 초과");
+      if (!["image/png", "image/jpeg", "image/webp", "image/gif", "image/avif"].includes(mime)) throw bridgeError("이미지 MIME 오류");
+      if (Number(res.headers.get("content-length")) > MAX_IMAGE_BYTES) throw bridgeError("이미지 크기 초과");
       const reader = res.body.getReader();
       const chunks = [];
       let size = 0;
@@ -454,12 +477,12 @@ async function pixaiDownload(task) {
           const { value, done } = await reader.read();
           if (done) break;
           size += value.byteLength;
-          if (size > MAX_IMAGE_BYTES) throw new Error("이미지 크기 초과");
+          if (size > MAX_IMAGE_BYTES) throw bridgeError("이미지 크기 초과");
           chunks.push(value);
         }
       } finally { await reader.cancel(); }
       const blob = new Blob(chunks, { type: mime });
-      if (!blob.size) throw new Error("empty image");
+      if (!blob.size) throw bridgeError("empty image");
       recordStage(`pixai.download (${a.label})`, true, `${blob.size} bytes ${blob.type}`);
       return blob;
     } catch (err) {
@@ -467,7 +490,7 @@ async function pixaiDownload(task) {
       lastErr = err;
     }
   }
-  throw lastErr || new Error("no media to download");
+  throw lastErr || bridgeError("no media to download");
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -486,7 +509,7 @@ function extFromBlob(blob) {
 function validateChatImage(image, chatId) {
   const strings = ["id","chatId","filePath","prompt","provider","model","createdAt","url"];
   const expected = `/api/gallery/file/${encodeURIComponent(chatId)}/`;
-  if (!image || strings.some(k => typeof image[k] !== "string") || !image.id || !image.filePath || !Number.isFinite(Date.parse(image.createdAt)) || image.chatId !== chatId || !image.url.startsWith(expected) || /(?:\.\.|%2e|%2f|%5c|[?#\\])/i.test(image.url) || ["width","height"].some(k=>image[k] !== null && !(Number.isFinite(image[k]) && image[k] > 0))) throw Object.assign(new Error("갤러리 응답 계약 불일치"),{contract:true});
+  if (!image || strings.some(k => typeof image[k] !== "string") || !image.id || !image.filePath || !Number.isFinite(Date.parse(image.createdAt)) || image.chatId !== chatId || !image.url.startsWith(expected) || /(?:\.\.|%2e|%2f|%5c|[?#\\])/i.test(image.url) || ["width","height"].some(k=>image[k] !== null && !(Number.isFinite(image[k]) && image[k] > 0))) throw Object.assign(bridgeError("갤러리 응답 계약 불일치"),{contract:true});
   return image;
 }
 
@@ -498,11 +521,11 @@ async function uploadToGallery(chatId, blob, prompt, options = settings) {
   fd.append("provider", "pixai");
   fd.append("model", options.modelVersionId);
   const res = await mfetch(`/gallery/${encodeURIComponent(chatId)}/upload`, { method: "POST", body: fd });
+  if (!res.ok) { recordStage("gallery.upload", false, httpStatus(res.status)); throw bridgeError(`갤러리 저장 실패 ${httpStatus(res.status)}`); }
   const text = await res.text();
-  if (!res.ok) { recordStage("gallery.upload", false, `HTTP ${res.status}`); throw new Error("upload failed"); }
   const image = JSON.parse(text);
   const expected = `/api/gallery/file/${encodeURIComponent(chatId)}/`;
-  if (typeof image.url !== "string" || !image.url.startsWith(expected) || image.url.includes("..")) throw new Error("gallery URL 오류");
+  if (typeof image.url !== "string" || !image.url.startsWith(expected) || image.url.includes("..")) throw bridgeError("gallery URL 오류");
   validateChatImage(image,chatId);
   recordStage("gallery.upload", true, "uploaded");
   return image; // { id, url, ... }
@@ -511,16 +534,16 @@ async function uploadToGallery(chatId, blob, prompt, options = settings) {
 async function attachToMessage(chatId, messageId, image, prompt, blob, swipeIndex) {
   // Read current extra so we merge instead of overwriting attachments.
   const listRes = await mfetch(`/chats/${encodeURIComponent(chatId)}/messages`);
-  if (!listRes.ok) throw new Error("메시지 조회 실패 — 기존 첨부 보존을 위해 중단");
+  if (!listRes.ok) throw bridgeError("메시지 조회 실패 — 기존 첨부 보존을 위해 중단");
   let existing = [];
   if (listRes.ok) {
     const msgs = await listRes.json();
     const m = Array.isArray(msgs) ? msgs.find((x) => x.id === messageId) : null;
-    if (!m) throw new Error("대상 메시지 없음");
-    if (Number.isInteger(swipeIndex) && m.activeSwipeIndex !== swipeIndex) throw new Error("대상 swipe 변경 — 갤러리만 보존합니다.");
+    if (!m) throw bridgeError("대상 메시지 없음");
+    if (Number.isInteger(swipeIndex) && m.activeSwipeIndex !== swipeIndex) throw bridgeError("대상 swipe 변경 — 갤러리만 보존합니다.");
     const extra = typeof m.extra === "string" ? JSON.parse(m.extra) : (m.extra ?? {});
-    if (!extra || typeof extra !== "object" || Array.isArray(extra)) throw new Error("메시지 extra 형식 오류");
-    if (extra.attachments !== undefined && !Array.isArray(extra.attachments)) throw new Error("첨부 형식 오류");
+    if (!extra || typeof extra !== "object" || Array.isArray(extra)) throw bridgeError("메시지 extra 형식 오류");
+    if (extra.attachments !== undefined && !Array.isArray(extra.attachments)) throw bridgeError("첨부 형식 오류");
     if (Array.isArray(extra?.attachments)) existing = extra.attachments;
   }
   const attachment = { type: "image", url: image.url, prompt, galleryId: image.id, filename: `pixai.${extFromBlob(blob)}` };
@@ -528,8 +551,8 @@ async function attachToMessage(chatId, messageId, image, prompt, blob, swipeInde
     method: "PATCH",
     body: JSON.stringify({ attachments: [...existing.filter(a=>a.galleryId !== image.id), attachment] }),
   });
-  if (!res.ok) { recordStage("message.attach", false, `HTTP ${res.status}`); throw new Error("attach failed"); }
-  recordStage("message.attach", true, `message ${messageId}`);
+  if (!res.ok) { recordStage("message.attach", false, httpStatus(res.status)); throw bridgeError(`첨부 실패 ${httpStatus(res.status)}`); }
+  recordStage("message.attach", true, "메시지 첨부 완료");
   // Immediate preview: React Query won't refetch on its own; inject a preview until the next reload.
   const el = document.querySelector(`[data-message-id="${CSS.escape(messageId)}"]`);
   if (el && !el.querySelector(".pixai-bridge-preview")) {
@@ -573,7 +596,7 @@ function parseAgentText(text) {
 
 function appearanceOf(card) {
   const data = typeof card.data === "string" ? JSON.parse(card.data) : card.data;
-  if (!data || typeof data !== "object" || Array.isArray(data)) throw new Error("카드 data 계약 불일치");
+  if (!data || typeof data !== "object" || Array.isArray(data)) throw bridgeError("카드 data 계약 불일치");
   for (const value of [data.extensions?.appearance, data.appearance]) if (typeof value === "string" && value.trim()) return { text:value.trim(), source:"appearance", warning:"" };
   if (typeof data.description === "string" && data.description.trim()) return { text:data.description.trim(), source:"description", warning:"외모 전용 정보 없음 — Description에 외모가 있는지 확인하세요." };
   return { text:"", source:"none", warning:"외모 정보 없음 → 카드 Appearance 칸이나 고정 태그를 채우세요." };
@@ -587,25 +610,25 @@ async function personaAppearance(options, chat, present) {
   if (fixed) return fixed;
   const path = chat.personaCharacterId ? `/characters/${encodeURIComponent(chat.personaCharacterId)}` : `/characters/personas/${encodeURIComponent(id)}`;
   const res = await mfetch(path);
-  if (!res.ok) throw new Error("페르소나 조회 실패");
+  if (!res.ok) throw bridgeError("페르소나 조회 실패");
   const value = await res.json();
   if (chat.personaCharacterId) return appearanceOf(value).text;
-  if (typeof value.appearance !== "string") throw new Error("페르소나 appearance 계약 불일치");
+  if (typeof value.appearance !== "string") throw bridgeError("페르소나 appearance 계약 불일치");
   return value.appearance.trim();
 }
 
 async function readChatCards(chatId) {
   const res = await mfetch(`/chats/${encodeURIComponent(chatId)}`);
-  if (!res.ok) throw new Error("채팅 조회 실패");
+  if (!res.ok) throw bridgeError("채팅 조회 실패");
   const chat = await res.json();
   const ids = typeof chat.characterIds === "string" ? JSON.parse(chat.characterIds) : chat.characterIds;
-  if (!Array.isArray(ids) || ids.some(id => typeof id !== "string")) throw new Error("채팅 참가자 계약 불일치");
+  if (!Array.isArray(ids) || ids.some(id => typeof id !== "string")) throw bridgeError("채팅 참가자 계약 불일치");
   const cards = [];
   for (const id of [...new Set(ids)]) {
     const response = await mfetch(`/characters/${encodeURIComponent(id)}`);
-    if (!response.ok) throw new Error("캐릭터 조회 실패");
+    if (!response.ok) throw bridgeError("캐릭터 조회 실패");
     const card = await response.json();
-    if (card.id !== id) throw new Error("캐릭터 ID 불일치");
+    if (card.id !== id) throw bridgeError("캐릭터 ID 불일치");
     const data = typeof card.data === "string" ? JSON.parse(card.data) : card.data;
     cards.push({ ...card, name: data?.name || card.name || id });
   }
@@ -614,7 +637,7 @@ async function readChatCards(chatId) {
 
 async function preparePrompt(chatId, parsed, options, characterId, request = {}) {
   const { chat, cards } = await readChatCards(chatId);
-  if (characterId && (chat.mode !== "conversation" || !cards.some(c => c.id === characterId))) throw new Error("Conversation 참가 캐릭터를 선택하세요.");
+  if (characterId && (chat.mode !== "conversation" || !cards.some(c => c.id === characterId))) throw bridgeError("Conversation 참가 캐릭터를 선택하세요.");
   const ids = characterId ? [characterId] : resolveCharacters(parsed,cards,options.characterProfiles || {});
   const profiles = ids.map(id => options.characterProfiles?.[id] || {});
   const appearances = ids.map(id => appearanceOf(cards.find(c=>c.id===id)));
@@ -627,9 +650,9 @@ async function preparePrompt(chatId, parsed, options, characterId, request = {})
   if (request.context) context.push(request.context);
   if (characterId && options.selfieUseRecentContext) {
     const r = await mfetch(`/chats/${encodeURIComponent(chatId)}/messages`);
-    if (!r.ok) throw new Error("최근 대화 조회 실패");
+    if (!r.ok) throw bridgeError("최근 대화 조회 실패");
     const messages = await r.json();
-    if (!Array.isArray(messages)) throw new Error("최근 대화 계약 불일치");
+    if (!Array.isArray(messages)) throw bridgeError("최근 대화 계약 불일치");
     context.unshift(...messages.filter(m=>["user","assistant"].includes(m.role) && !m.hidden && !m.isHidden && Date.parse(m.createdAt) <= (request.startedAt || Date.now())).slice(-4).map(m=>cutText(m.content,200)));
   }
   const result = composePrompt(options,{ scene:parsed.prompt,negative:parsed.negative,profiles,appearances,persona,selfie:!!characterId,context });
@@ -647,7 +670,7 @@ function validateStyle(style) {
   if (style == null) return undefined;
   if (style.type === "preset" && Object.keys(style).sort().join() === "key,type" && STYLE_PRESETS.includes(style.key)) return { type: "preset", key: style.key };
   if (style.type === "custom" && Object.keys(style).sort().join() === "custom,type" && typeof style.custom === "string" && style.custom.trim() && style.custom.length <= 500) return { type: "custom", custom: style.custom.trim() };
-  throw new Error("PixAI style 형식/프리셋 오류 (custom 1–500자)");
+  throw bridgeError("PixAI style 형식/프리셋 오류 (custom 1–500자)");
 }
 
 function composePrompt(options, input) {
@@ -672,7 +695,7 @@ function composePrompt(options, input) {
   for (const value of input.context || []) sceneValue = sceneValue.split(`[최근 대화 원문 발췌: ${cutText(value,200)}]`).join("");
   const scene = tags(sceneValue);
   const required = [...styleTags, ...fixed, ...minimum];
-  if (required.join(", ").length > budget) throw new Error("화풍·고정 외모·최소 구도가 2,000자 예산을 초과합니다.");
+  if (required.join(", ").length > budget) throw bridgeError("화풍·고정 외모·최소 구도가 2,000자 예산을 초과합니다.");
   let used = required.join(", ").length;
   const take = (value, label) => {
     const room = budget - used - (used ? 2 : 0);
@@ -705,7 +728,7 @@ function composePrompt(options, input) {
 function mergeLoras(profiles, global) {
   const merged = new Map(), warnings = [];
   for (const p of profiles) for (const item of parseLoras(p.loras || [])) {
-    if (merged.has(item.modelId) && merged.get(item.modelId).weight !== item.weight) throw new Error("캐릭터 LoRA 가중치 충돌");
+    if (merged.has(item.modelId) && merged.get(item.modelId).weight !== item.weight) throw bridgeError("캐릭터 LoRA 가중치 충돌");
     merged.set(item.modelId, item);
   }
   for (const item of parseLoras(global || [])) {
@@ -713,7 +736,7 @@ function mergeLoras(profiles, global) {
       if (merged.get(item.modelId).weight !== item.weight) warnings.push("캐릭터 LoRA 가중치가 전역 설정보다 우선합니다.");
     } else merged.set(item.modelId, item);
   }
-  if (merged.size > 5) throw new Error("병합 LoRA 5개 초과 — 프로필/전역 행을 수정하세요.");
+  if (merged.size > 5) throw bridgeError("병합 LoRA 5개 초과 — 프로필/전역 행을 수정하세요.");
   return { loras: [...merged.values()], warnings };
 }
 
@@ -776,8 +799,9 @@ function installSelfieAdapter() {
     try { return await abortCaller(handleSelfie(matched),matched.signal); }
     catch (error) {
       if (error?.name === "AbortError") throw error;
-      if (error.contract) { owner.active = false; recordStage("selfie",false,"응답 계약 불일치 — 이 세션의 셀피 대체를 껐습니다. 다음 요청은 원본 이미지 연결을 사용하며 비용이 발생할 수 있습니다."); }
-      return new Response(JSON.stringify({error:error.status === 409 ? "같은 채팅 작업 중 또는 검토 설정 변경 — 완료/재검토 후 요청하세요." : "Bridge 요청 실패 — 원본 재전송 없음. 작업 기록에서 미접수/접수 불명을 확인하세요."}),{status:error.status || 502,headers:{"Content-Type":"application/json"}});
+      if (error?.contract) { owner.active = false; recordStage("selfie",false,"응답 계약 불일치 — 이 세션의 셀피 대체를 껐습니다. 다음 요청은 원본 이미지 연결을 사용하며 비용이 발생할 수 있습니다."); }
+      const status = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599 ? error.status : 502;
+      return new Response(JSON.stringify({error:`${describeFetchError(error)} — 원본 재전송 없음. 작업 기록에서 미접수/접수 불명을 확인하세요.`}),{status,headers:{"Content-Type":"application/json"}});
     }
   };
   window.fetch = wrapper;
@@ -794,14 +818,14 @@ function promptSignature(options) {
 }
 
 async function handleSelfie(request) {
-  if (storageError || stopped) throw new Error("저장소/실행 상태 오류");
+  if (storageError || stopped) throw bridgeError("저장소/실행 상태 오류");
   if (request.signal?.aborted) throw new DOMException("호출 취소","AbortError");
   const {chatId,body} = request;
   const target = `${chatId}:${body.characterId}`;
   if (!body.previewOnly && inflight.has(`selfie:${target}`)) return new Response(JSON.stringify(await inflight.get(`selfie:${target}`)),{headers:{"Content-Type":"application/json"}});
   const signature = promptSignature(settings);
   const previous = selfiePreviews.get(target);
-  if (!body.previewOnly && body.promptOverride && previous && previous.signature !== signature) throw Object.assign(new Error("설정 변경 — 무료 미리보기를 다시 여세요."),{status:409});
+  if (!body.previewOnly && body.promptOverride && previous && previous.signature !== signature) throw Object.assign(bridgeError("설정 변경 — 무료 미리보기를 다시 여세요."),{status:409});
   const prepare = async options => {
     // Re-read membership even for a reviewed override; do not trust a stale card target.
     const result = await preparePrompt(chatId,{prompt:body.promptOverride || "solo, selfie, upper body, looking at viewer",negative:body.negativePromptOverride || "",persona:false},options,body.characterId,{...request,context:body.context});
@@ -837,13 +861,13 @@ async function writeReceipt(operation, state, fields = {}) {
   await storageLock(async () => {
     const fresh = await marinara.storage.get();
     validateStorage(fresh);
-    if (fresh.schemaVersion !== 2 || !Array.isArray(fresh.operationLedger)) throw new Error("작업 저장소 계약 오류");
+    if (fresh.schemaVersion !== 2 || !Array.isArray(fresh.operationLedger)) throw bridgeError("작업 저장소 계약 오류");
     let rows = fresh.operationLedger;
     const previous = rows.find(r => r.operationId === operation.operationId);
     if (!previous) {
       if (rows.some(r => r.operationId === operation.operationId || (isUnresolved(r) &&
-        (operation.source === "diagnostic" ? r.source === "diagnostic" : r.anchor?.chatId === operation.anchor.chatId)))) throw new Error("미해결 작업 확인 후 명시적으로 해제하세요.");
-      if (rows.filter(isUnresolved).length >= 500) throw new Error("미해결 작업 기록 한도 초과");
+        (operation.source === "diagnostic" ? r.source === "diagnostic" : r.anchor?.chatId === operation.anchor.chatId)))) throw bridgeError("미해결 작업 확인 후 명시적으로 해제하세요.");
+      if (rows.filter(isUnresolved).length >= 500) throw bridgeError("미해결 작업 기록 한도 초과");
     }
     const now = new Date().toISOString();
     const row = { operationId:operation.operationId, source:operation.source, anchor:operation.anchor,
@@ -864,7 +888,7 @@ async function assertOperation(operation, refreshPrivacy = false) {
   const feature = operation.source === "selfie" ? "selfieInterceptEnabled" : operation.source === "illustration" ? "enabled" : null;
   const checkLocal = () => {
     if (stopped || operation.revision !== stopRevision) throw new DOMException("작업 중지", "AbortError");
-    if (storageError || !isLeader || !apiKey) throw Object.assign(new Error("저장소·실행 탭·키 확인 필요"),{status:409});
+    if (storageError || !isLeader || !apiKey) throw Object.assign(bridgeError("저장소·실행 탭·키 확인 필요"),{status:409});
     if (!operation.creating && operation.signal?.aborted) throw new DOMException("호출 취소", "AbortError");
     if (!operation.creating && feature && settings[feature] === false) throw new DOMException("기능 OFF — 새 생성 중지", "AbortError");
   };
@@ -873,8 +897,8 @@ async function assertOperation(operation, refreshPrivacy = false) {
   checkLocal();
   validateStorage(fresh);
   if (!operation.creating && feature && fresh[feature] === false) throw new DOMException("기능 OFF — 새 생성 중지", "AbortError");
-  if (fresh.schemaVersion !== 2) throw new Error("저장소 버전 충돌 — 구버전 탭을 닫으세요.");
-  if (!operation.receipted && fresh.operationLedger?.some(r=>r.operationId === operation.operationId)) throw new Error("이미 기록된 작업 — 재생성하지 않습니다.");
+  if (fresh.schemaVersion !== 2) throw bridgeError("저장소 버전 충돌 — 구버전 탭을 닫으세요.");
+  if (!operation.receipted && fresh.operationLedger?.some(r=>r.operationId === operation.operationId)) throw bridgeError("이미 기록된 작업 — 재생성하지 않습니다.");
   if ((fresh.stopEpoch || 0) !== operation.epoch) throw new DOMException("다른 탭에서 중지했습니다.", "AbortError");
   if (refreshPrivacy) {
     // Another tab may have opted out. Freeze privacy choices before preparing this job only.
@@ -889,7 +913,7 @@ function coordinate(spec) {
   const target = spec.source === "selfie" ? `selfie:${spec.anchor.chatId}:${spec.anchor.characterId}` : spec.operationId;
   // R2: same-target sharing must be checked before same-chat rejection.
   if (inflight.has(target)) return inflight.get(target);
-  if (spec.source === "selfie" && operationChats.has(spec.anchor.chatId)) return Promise.reject(Object.assign(new Error("같은 채팅 이미지 작업 완료 후 요청하세요."), {status:409}));
+  if (spec.source === "selfie" && operationChats.has(spec.anchor.chatId)) return Promise.reject(Object.assign(bridgeError("같은 채팅 이미지 작업 완료 후 요청하세요."), {status:409}));
   const operation = { ...spec, options:structuredClone(settings), revision:spec.revision ?? stopRevision, epoch:settings.stopEpoch || 0, creating:false };
   operationChats.set(spec.anchor.chatId, (operationChats.get(spec.anchor.chatId) || 0) + 1);
   const promise = operationQueue.then(() => executeOperation(operation));
@@ -931,7 +955,7 @@ async function executeOperation(operation) {
       }
       catch(error){operation.creating=false;throw error;}
     });
-    if (typeof task.id !== "string" || !task.id) throw new Error("접수 응답 ID 불명");
+    if (typeof task.id !== "string" || !task.id) throw bridgeError("접수 응답 ID 불명");
     taskId = task.id;
     await receipt("taskKnown",{taskId});
     await assertOperation(operation);
@@ -956,7 +980,7 @@ async function executeOperation(operation) {
       const failure = galleryId ? (operation.source === "illustration" ? "attachmentFailed" : "uploaded") : taskId ? state : operation.creating ? "ambiguous" : "failedBeforeCreate";
       try { await receipt(failure,{taskId,galleryId}); } catch { recordStage("ledger",false,"영수증 갱신 실패 — 새 생성 전에 계정과 갤러리를 확인하세요."); }
     }
-    recordStage("operation",false,operation.creating ? "접수 여부/완료 불명 — 자동 재생성 없음. 작업 영수증과 계정을 확인하세요." : "이번 요청 생성 안 함 — 설정·잠금·저장소·조회 확인 실패 또는 취소");
+    recordStage("operation",false,`${operation.creating ? "접수 여부/완료 불명 — 자동 재생성 없음. 작업 영수증과 계정을 확인하세요." : "이번 요청 생성 안 함"} — ${describeFetchError(error)}`);
     throw error;
   }
 }
@@ -965,13 +989,13 @@ async function executeOperation(operation) {
 // Main loop
 // ─────────────────────────────────────────────────────────────
 async function prepareIllustration(anchor, parsed, options) {
-  if (!anchor.messageId) throw new Error("삽화 대상 메시지 없음");
+  if (!anchor.messageId) throw bridgeError("삽화 대상 메시지 없음");
   const response = await mfetch(`/chats/${encodeURIComponent(anchor.chatId)}/messages`);
-  if (!response.ok) throw new Error("삽화 대상 조회 실패");
+  if (!response.ok) throw bridgeError("삽화 대상 조회 실패");
   const messages = await response.json();
   const message = Array.isArray(messages) ? messages.find(m=>m.id === anchor.messageId) : null;
-  if (!message || message.role !== "assistant" || !Number.isInteger(message.activeSwipeIndex) || message.activeSwipeIndex < 0) throw new Error("삽화 메시지/swipe 계약 불일치");
-  if (Number.isInteger(anchor.swipeIndex) && anchor.swipeIndex !== message.activeSwipeIndex) throw new Error("삽화 대상 swipe 변경");
+  if (!message || message.role !== "assistant" || !Number.isInteger(message.activeSwipeIndex) || message.activeSwipeIndex < 0) throw bridgeError("삽화 메시지/swipe 계약 불일치");
+  if (Number.isInteger(anchor.swipeIndex) && anchor.swipeIndex !== message.activeSwipeIndex) throw bridgeError("삽화 대상 swipe 변경");
   anchor.swipeIndex = message.activeSwipeIndex;
   return preparePrompt(anchor.chatId,parsed,options);
 }
@@ -991,7 +1015,7 @@ async function pollOnce() {
   busy = true;
   try {
     const res = await mfetch(`/agents/runs/${encodeURIComponent(chatId)}/custom?limit=5`);
-    if (!res.ok) { recordStage("agent.runs GET", false, `HTTP ${res.status}`); return; }
+    if (!res.ok) { recordStage("agent.runs GET", false, httpStatus(res.status)); return; }
     const runs = await res.json();
     if (!Array.isArray(runs) || runs.length === 0) return;
     const seen = new Set([...settings.processedRunIds, ...sessionSeen]);
@@ -1245,7 +1269,7 @@ function addLoraRow(modelId = "", weight = 1) {
   q(".pb-loras").appendChild(row);
 }
 try { parseLoras(settings.loras).forEach((item) => addLoraRow(item.modelId, item.weight)); }
-catch (err) { recordStage("settings.LoRA", false, err.message); }
+catch (err) { recordStage("settings.LoRA", false, describeFetchError(err)); }
 q(".pb-lora-add").addEventListener("click", () => addLoraRow());
 q(".pb-ratio").value = settings.aspectRatio;
 q(".pb-size").value = settings.size;
@@ -1264,14 +1288,14 @@ for (const [selector,key] of [[".pb-selfie","selfieInterceptEnabled"],[".pb-rece
   q(selector).addEventListener("change",async()=>{
     const on=q(selector).checked;
     try {await saveSettings({[key]:on});recordStage("settings",true,"옵션 저장됨");}
-    catch {q(selector).checked=settings[key] === true;recordStage("settings",false,"옵션 저장 실패 — 실행 탭과 저장소를 확인하세요.");}
+    catch (err) {q(selector).checked=settings[key] === true;recordStage("settings",false,`옵션 저장 실패 — ${describeFetchError(err)}`);}
   });
 }
-q(".pb-style-save").addEventListener("click",async()=>{try {await saveSettings(readV2Controls());recordStage("style",true,"화풍 저장됨");}catch{recordStage("style",false,"화풍 저장 실패 — style·2,000자 예산·실행 탭을 확인하세요.");}});
+q(".pb-style-save").addEventListener("click",async()=>{try {await saveSettings(readV2Controls());recordStage("style",true,"화풍 저장됨");}catch(err){recordStage("style",false,`화풍 저장 실패 — ${describeFetchError(err)}`);}});
 q(".pb-profiles-load").addEventListener("click",()=>{void loadProfileRows().catch(()=>recordStage("profiles",false,"프로필 조회 실패 — 현재 채팅·카드 계약 확인"));});
 q(".pb-preview-free").addEventListener("click",async()=>{
   try {const chatId=activeChatId(),characterId=q(".pb-preview-character").value;if(!chatId || !characterId) throw new Error();await handleSelfie({chatId,body:{characterId,previewOnly:true},startedAt:Date.now()});}
-  catch {recordStage("preview",false,"미리보기 실패 — 프로필을 읽고 저장된 설정을 확인하세요.");}
+  catch (err) {recordStage("preview",false,`미리보기 실패 — ${describeFetchError(err)}`);}
 });
 q(".pb-stop").addEventListener("click",()=>{void emergencyStop();});
 q(".pb-release").addEventListener("click",async()=>{
@@ -1290,11 +1314,11 @@ q(".pb-save").addEventListener("click", async () => {
   try {
   let loras;
   try {
-    if (!/^[1-9]\d*$/.test(q(".pb-model").value.trim())) throw new Error("모델 ID는 양의 정수 문자열이어야 합니다.");
+    if (!/^[1-9]\d*$/.test(q(".pb-model").value.trim())) throw bridgeError("모델 ID는 양의 정수 문자열이어야 합니다.");
     loras = parseLoras([...q(".pb-loras").children].map((row) => ({
       modelId: row.querySelector(".pb-lora-id").value.trim(), weight: row.querySelector(".pb-lora-weight").value,
     })));
-  } catch (err) { recordStage("settings", false, err.message); return; }
+  } catch (err) { recordStage("settings", false, describeFetchError(err)); return; }
   if (q(".pb-enabled").checked) {
     if (!isLeader) { recordStage("settings", false, "Web Locks 지원 localhost/HTTPS 브라우저 한 탭에서만 자동 처리할 수 있습니다."); return; }
     if (!q(".pb-key").value.trim()) { recordStage("settings", false, "키 입력 필요"); return; }
@@ -1325,9 +1349,9 @@ q(".pb-save").addEventListener("click", async () => {
   };
   const changed = Object.fromEntries(Object.entries(edited).filter(([k,v])=>JSON.stringify(v)!==JSON.stringify(settings[k])));
   if (nextKey === apiKey && rememberKey === settings.rememberKey) {delete changed.apiKey;delete changed.rememberKey;}
-  try { await saveSettings(changed); } catch { recordStage("settings", false, "설정 저장 실패 — 자동 처리는 이전 상태 유지"); return; }
+  try { await saveSettings(changed); } catch (err) { recordStage("settings", false, `설정 저장 실패 — ${describeFetchError(err)}`); return; }
   if (saveRevision !== stopRevision) return;
-  if (apiKey !== nextKey) taskAccessCheck = null;
+  taskAccessCheck = null; // An explicit Save retries access even with unchanged settings/key.
   apiKey = nextKey;
   recordStage("settings", true, `saved (key ${apiKey ? "set" : "EMPTY"}; auto=${settings.enabled})`);
   renderStatus();
@@ -1361,7 +1385,7 @@ function readV2Controls() {
 
 async function loadProfileRows() {
   const chatId = activeChatId();
-  if (!chatId) throw new Error("활성 채팅 없음");
+  if (!chatId) throw bridgeError("활성 채팅 없음");
   const {chat,cards} = await readChatCards(chatId);
   const list = q(".pb-profiles"); list.replaceChildren();
   const selector = q(".pb-preview-character"); selector.replaceChildren();
@@ -1387,10 +1411,10 @@ async function loadProfileRows() {
     save.addEventListener("click",async()=>{
       try {
         const next={displayName:card.name,aliases:aliases.value.split("\n").map(v=>v.normalize("NFC").trim()).filter(Boolean),fixedTags:fixed.value,loras:parseLoras(loras.value)};
-        if (next.aliases.some(v=>v.length>200 || /[\x00-\x1f\x7f]/.test(v))) throw new Error("별칭 형식 오류");
+        if (next.aliases.some(v=>v.length>200 || /[\x00-\x1f\x7f]/.test(v))) throw bridgeError("별칭 형식 오류");
         composePrompt(settings,{scene:"",profiles:[next],selfie:true});
         await saveProfile("characterProfiles",card.id,next);status.textContent="프로필 저장됨 — 무료 미리보기에서 확인하세요.";
-      } catch { status.textContent="저장 실패 — 태그 길이·LoRA·실행 탭을 확인하세요."; }
+      } catch (err) { status.textContent=`저장 실패 — ${describeFetchError(err)}`; }
     });row.append(save);list.append(row);
   }
   const personaId = chat.personaCharacterId ? `character:${chat.personaCharacterId}` : chat.personaId;
@@ -1398,7 +1422,7 @@ async function loadProfileRows() {
   q(".pb-persona-tags").value = settings.personaProfiles[personaId]?.fixedTags || "";
   q(".pb-persona-save").onclick = async () => {
     try { if (!personaId) throw new Error(); const fixedTags=q(".pb-persona-tags").value;composePrompt(settings,{scene:"",persona:fixedTags});await saveProfile("personaProfiles",personaId,{fixedTags});recordStage("persona",true,"프로필 저장됨"); }
-    catch {recordStage("persona",false,"페르소나 프로필 저장 실패");}
+    catch (err) {recordStage("persona",false,`페르소나 프로필 저장 실패 — ${describeFetchError(err)}`);}
   };
   const response = await mfetch("/agents");
   const agents = response.ok ? await response.json() : [];

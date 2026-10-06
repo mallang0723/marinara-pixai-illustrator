@@ -51,9 +51,7 @@ test('paid diagnostics lock excludes double click and cleanup blocks the next st
   assert.equal(ctx.busy, false);
 });
 function helper(name) {
-  const start = source.search(new RegExp(`(?:async )?function ${name}\\(`));
-  assert.notEqual(start, -1, `missing ${name}`);
-  return source.slice(start, source.indexOf('\n}', start) + 2);
+  return require('./v2-helpers.cjs').helper(name);
 }
 test('attachment read failure is fail-closed, never PATCH', async () => {
   let requests = 0;

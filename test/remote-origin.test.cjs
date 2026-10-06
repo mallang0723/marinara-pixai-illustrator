@@ -6,9 +6,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
 function helper(name) {
-  const start = source.search(new RegExp(`(?:async )?function ${name}\\(`));
-  assert.notEqual(start, -1, `missing helper ${name}`);
-  return source.slice(start, source.indexOf('\n}', start) + 2);
+  return require('./v2-helpers.cjs').helper(name);
 }
 function fixture(fetch) {
   const calls = [], stages = [];
@@ -52,7 +50,7 @@ test('diagnostic 1 probes v2 without create and shares cached reachability with 
     assert.deepEqual(calls.map(x => x.url), ['https://api.pixai.art/v2/task/0']);
     if (status === 401) {
       await assert.rejects(ctx.pixaiCreateTask('fixture', '', '1:1'));
-      assert.equal(calls.length, 1, 'v2 strict preflight blocks unauthorized create');
+      assert.equal(calls.length, 2, 'rejected access is retried, still without create');
       continue;
     }
     await ctx.pixaiCreateTask('fixture', '', '1:1');
@@ -66,14 +64,14 @@ test('paid diagnostic cannot create when result access is blocked', async () => 
   assert.equal(ctx.busy, false);
   assert.deepEqual(calls.map(x => x.url), ['https://api.pixai.art/v2/task/0']);
 });
-test('CORS probe failure is session-cached and prevents every paid create', async () => {
+test('CORS probe failure retries and prevents every paid create', async () => {
   const { ctx, calls, stages } = fixture(async url => {
     if (url.endsWith('/v2/task/0')) throw new TypeError('fixture CORS');
     return new Response('{"id":"unexpected-paid-task"}');
   });
   for (let i = 0; i < 2; i++) await assert.rejects(ctx.pixaiCreateTask('fixture', '', '1:1'));
-  assert.deepEqual(calls.map(x => x.url), ['https://api.pixai.art/v2/task/0']);
-  assert.ok(stages.some(x => x[2].includes('네트워크/CORS 오류 가능') && x[2].includes('새로고침 후 다시 시도')));
+  assert.deepEqual(calls.map(x => x.url), Array(2).fill('https://api.pixai.art/v2/task/0'));
+  assert.ok(stages.some(x => x[2].includes('네트워크/CORS 오류 가능') && x[2].includes('다시 시도')));
 });
 test('v2 404 alone falls back to v1; other HTTP and transport errors never do', async () => {
   const { ctx, calls } = fixture(async url => url.includes('/v2/')

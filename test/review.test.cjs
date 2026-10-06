@@ -6,6 +6,7 @@ const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
 const ratios = ['1:1','2:3','3:2','3:4','4:3','3:5','5:3','9:16','16:9'];
 function clickHandler(selector, next, ctx) {
+  vm.runInContext(helper('describeFetchError'), ctx);
   let handler;
   const oldQ = ctx.q;
   ctx.q = s => s === selector ? { addEventListener: (event, fn) => { handler = fn; } } : oldQ(s);
@@ -161,9 +162,7 @@ test('background settings writes do not resend a stale remembered key', async ()
   assert.equal(Object.hasOwn(written, 'rememberKey'), false);
 });
 function helper(name) {
-  const start = source.search(new RegExp(`(?:async )?function ${name}\\(`));
-  assert.notEqual(start, -1);
-  return source.slice(start, source.indexOf('\n}', start) + 2);
+  return require('./v2-helpers.cjs').helper(name);
 }
 test('agent ratio uses panel allowlist and prompt fields are bounded', () => {
   const ctx = vm.createContext({ settings: { aspectRatio: '3:4' }, DEFAULTS: { aspectRatio: '2:3' }, ASPECT_RATIOS: ratios, MAX_PROMPT_CHARS: 2000 });

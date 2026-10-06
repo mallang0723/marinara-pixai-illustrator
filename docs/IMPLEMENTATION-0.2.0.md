@@ -1,6 +1,6 @@
 # 0.2.0 구현 기록 (SYHO-87)
 
-**상태: 단계 1–5·7 조건부 구현 검수 후 필수 조건 1·2 및 R2/R3/R5 수정 완료, 한정 재검수 대기. 실제 UI 가져오기·사용자 확인·공개는 미완료.** B/SSE 복구는 제외했습니다. 실제 PixAI 생성, 자격 증명 열람, 운영/원격 서버 조작, push/release는 수행하지 않았습니다. 모든 테스트 자료는 합성입니다.
+**상태: 조건부 검수 수정에 이어 실기 차단 보고의 오류 표시·preflight 캐시 수정 완료, 새 후보 한정 재검수 대기. 사용자 iPhone Safari/Tailscale HTTPS 재시험·공개는 미완료.** B/SSE 복구는 제외했습니다. 이번 작업에서 실제 PixAI 생성, 자격 증명 열람, 운영/원격 서버 조작, push/release는 수행하지 않았습니다. 모든 테스트 자료는 합성입니다.
 
 기준은 `main 64a7100`입니다. 이전 중단 변경을 보존하고 설계와 제공된 검토 문서를 전부 읽어 이어 구현했습니다. 기존 Engine node_modules만 사용했고 새 의존성 설치는 없습니다.
 
@@ -49,15 +49,16 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 | 명령 | 결과 |
 |---|---|
-| `node --test test/*.test.cjs` | PASS: 82/82, skip 0 |
-| `node --test --test-isolation=none test/*.test.cjs` | PASS: 82/82, skip 0 |
+| `node --test test/*.test.cjs` | PASS: 102/102, skip 0 |
+| `node --test --test-isolation=none test/*.test.cjs` | PASS: 102/102, skip 0 |
 | `node agent/validate-agent.mjs "$MARINARA_REPO"` | PASS: 실제 import·Zod, agent 1/functions 0, 능력 15개 OFF, persona OFF, prompt 일치 |
 | `node test/storage-export.mjs` | PASS: 실제 Engine 평문 저장/삭제, export에서 합성 키·프로필·ledger 제외 |
 | `node test/browser-test.cjs` | 부모 최종 직접 재실행 PASS: 키 기억/삭제/실패·회귀·외부 전송 0 |
 | `node test/reload-browser.cjs` | 부모 최종 직접 재실행 PASS: ON/OFF·중복 방지·follower·stop |
 | `node test/position-browser.cjs` | 부모 최종 직접 재실행 PASS: desktop 및 390px touch/rotation |
 | `node test/selfie-browser.cjs` | PASS: preview·Request·gallery·C3·abort·poll 중 최근 대화 OFF·stop·cleanup |
-| `python3 tools/build.py` | PASS: 감싼 JS 문법·소스 38개 ZIP/JSON 원본 바이트 대조 |
+| `node test/diagnostics-browser.cjs` | PASS: 실제 진단 버튼 401/403 표시·실패 재조회·성공 재사용·동일키 저장/키 변경 무효화·모델 오류·비밀 비노출·create 0 |
+| `python3 tools/build.py` | PASS: 감싼 JS 문법·소스 40개 ZIP/JSON 원본 바이트 대조 |
 | `git diff --check` | PASS |
 
 초기 구현 도구는 420초 제한으로 중단돼 변경을 회수해 이어 작업했습니다. 위임 sandbox에서는 Chromium이 `setsockopt: Operation not permitted`로 종료됐지만 부모 환경에서는 실행 가능했습니다. 부모가 모바일 fixture의 다중 paragraph selector 실패를 재현하고 `.pixai-bridge-panel > p:first-of-type`로 좁혔습니다. 독립 리뷰 4건 수정 이후 부모가 브라우저 4개·validator·storage export를 직접 다시 실행해 전부 통과했습니다. 실제 Marinara UI import·실 PixAI 생성 성공을 뜻하지 않습니다.
@@ -90,7 +91,7 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 | 로컬 dist 파일 | SHA-256 |
 |---|---|
-| `marinara-pixai-illustrator-v0.2.0.zip` | `ae1055468065f89618063935ba827dba9622d0a1936ab23a94a04b03b49e52d5` |
+| `marinara-pixai-illustrator-v0.2.0.zip` | `a2ee8b1bb90ede2fc3a5545c3119645841d5448bcf1f57916901db67d958c79c` |
 | `pixai-director.agent.json` | `805bbbddb4ab80eb667451c6fca6301809ddaeef2d8a0c8aa558315972794152` |
 
 `dist/SHA256SUMS`와 함께 로컬 생성했습니다. dist는 gitignore 대상입니다. ZIP에 설계는 포함하고, 해시 자기참조를 피하려고 이 구현 기록은 포함하지 않습니다. 실제 import/배포 승인을 의미하지 않습니다.
@@ -139,6 +140,15 @@ SYHO-88의 조건부 판정 후 필수 수정만 반영했습니다. 위의 C1�
 
 `test/selfie-browser.cjs`에는 실제 체크박스 조작으로 최근 대화 ON → 셀피 poll 대기 → 최근 대화 OFF → poll 해제 → ChatImage/gallery/complete 및 stopEpoch 불변을 확인하는 회귀를 추가했습니다. 기존 create mock은 실제 POST 직전 guard를 호출하도록 수정했고, 과거 중지 테스트는 일반 OFF가 아니라 명시 emergency 의도를 전달하도록 변경했습니다. 과금 중단/키 삭제/최종 guard/caller abort 기존 assertion은 유지했습니다.
 
+## 실기 차단 보고 후 진단 수정 — 2026-10-06
+
+- **확인한 원인:** 비허용 HTTP 상태는 preflight 로그 이전에 throw했고, `describeFetchError`가 내부 검증 오류까지 일반 문구로 숨겼습니다. 실패 결과도 세션 캐시에 남았습니다. 다만 **기존 코드에도 실제 키 값이 바뀌면 캐시를 비우는 분기는 있었습니다.** 사용자 시각 기록만으로 키 저장 무효화 자체가 전혀 없었다거나 실제 응답이 401/403이었다고 단정하지 않습니다. 동일 키 저장은 무효화하지 않았고, 실패 재시도·진행 중 요청 경쟁을 함께 수정했습니다.
+- **오류 경계:** `bridgeError`에서 검토된 확장 문구만 WeakMap의 객체 동일성으로 신뢰합니다. 숫자 HTTP 코드는 100–599 정수만 표시합니다. 임의 `Error.message`, JSON 파서가 담은 원문, 원격 status/body, 키·프롬프트·ID는 신뢰 문구에 섞지 않습니다. 진단·조정기·설정·셀피에서 동일 포맷터를 사용합니다.
+- **캐시:** 현재 인증값의 진행 중 조회를 공유하고 2xx/404만 재사용합니다. HTTP/네트워크 실패는 제거해 다음 호출에서 다시 조회합니다. 명시적 저장은 동일 키/빈 patch여도 성공 캐시를 비웁니다. 이전 promise 실패가 새로운 캐시를 지우지 않도록 동일성 검사합니다.
+- **TDD/검수:** 위임 구현의 초기 신규 테스트 16개 중 13개 실패·3개 통과를 로그에서 확인했습니다. 이후 신규 테스트 20개 통과, 부모 직접 전체 102개와 Chromium 5종·validator·storage export 통과. 구현 CLI는 420초 제한으로 종료되어 변경을 회수했고 부모가 직접 검증했습니다. 별도 read-only 리뷰는 요구사항/보안 모두 APPROVED, 신규 20개 통과를 보고했습니다.
+- **독립 수용 검사:** 부모가 작성한 `test/diagnostics-browser.cjs`는 전체 확장과 실제 UI 버튼/로그를 390px Chromium에서 실행합니다. 401/403 본문에 비밀 sentinel을 넣어 코드만 보이는지, 실패→재조회→성공 캐시→동일키 저장→키 변경을 순서대로 확인합니다. 초기 harness의 모델 입력은 preset 상태에서 disabled여서 custom 선택을 추가했습니다. 실제 외부 전송은 차단했고 create 0회입니다.
+- **한계:** Safari 실기 원인은 아직 미확정입니다. 새 ZIP으로 진단 1부터 재시험하여 표시된 단계·코드로 확인해야 합니다. 실제 유료 생성·계정·키 유효성을 이 오프라인 결과로 주장하지 않습니다. 0.2.1 이월 R1 세부 원인 분류/R4 카드 조회 폴백은 확대 구현하지 않았습니다.
+
 ## 리비전 이력
 
 | 날짜 | 변경 |
@@ -147,3 +157,4 @@ SYHO-88의 조건부 판정 후 필수 수정만 반영했습니다. 위의 C1�
 | 2026-10-05 | 단계 1–5·7·55개 검증·C/R·브라우저/커밋 차단·해시·사용자 게이트 기록 |
 | 2026-10-05 | 경쟁 수정·71개·브라우저·목록·커밋 검증 |
 | 2026-10-06 | 조건부 검수 수정·82개·새 해시 반영 |
+| 2026-10-06 | 진단·캐시 수정 및 102개·브라우저 검증 |

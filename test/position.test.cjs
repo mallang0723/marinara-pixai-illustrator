@@ -5,9 +5,7 @@ const vm = require('node:vm');
 const path = require('node:path');
 const source = fs.readFileSync(path.join(__dirname, '../extension.js'), 'utf8');
 function helper(name) {
-  const start = source.search(new RegExp(`function ${name}\\(`));
-  assert.notEqual(start, -1, `missing ${name}`);
-  return source.slice(start, source.indexOf('\n}', start) + 2);
+  return require('./v2-helpers.cjs').helper(name);
 }
 test('positions clamp to visible viewport including offsets and invalid saved coordinates', () => {
   const ctx = vm.createContext({});
