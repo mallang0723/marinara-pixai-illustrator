@@ -13,7 +13,11 @@ function coordinator(overrides={}) {
   storageLock:async fn=>fn(),marinara:{storage:{get:async()=>structuredClone(stored),patch:async p=>{events.push(p.operationLedger?.at(-1)?.state);Object.assign(stored,structuredClone(p));}}},
   ensureTaskAccess:async()=>404,prepare:async()=>({prompt:'scene',negative:'',loras:[]}),
   pixaiCreateTask:async()=>{events.push('POST');return {id:'task'};},pixaiWaitTask:async()=>({}),pixaiDownload:async()=>({}),uploadToGallery:async()=>({id:'gallery'}),attachToMessage:async()=>{},recordStage(){},renderLedger(){},...overrides
- });return {c,stored,events};
+ });
+ // A create stub must honor the real transport's final dispatch guard.
+ const create=c.pixaiCreateTask;
+ c.pixaiCreateTask=async(...args)=>{const guard=await args[5]();guard();return create(...args);};
+ return {c,stored,events};
 }
 test('durable creating precedes one POST; failed claim sends none and uncertain create blocks replay',async()=>{
  const f=coordinator();await f.c.coordinate({operationId:'a',source:'selfie',anchor:{chatId:'chat',characterId:'char'},prepare:f.c.prepare});

@@ -1,6 +1,6 @@
 # 0.2.0 구현 기록 (SYHO-87)
 
-**상태: 단계 1–5·7 구현·오프라인 Chromium 검증·독립 자체 리뷰 완료. 정식 구현 검수·실제 UI 가져오기·사용자 확인·공개는 미완료.** B/SSE 복구는 제외했습니다. 실제 PixAI 생성, 자격 증명 열람, 운영/원격 서버 조작, push/release는 수행하지 않았습니다. 모든 테스트 자료는 합성입니다.
+**상태: 단계 1–5·7 조건부 구현 검수 후 필수 조건 1·2 및 R2/R3/R5 수정 완료, 한정 재검수 대기. 실제 UI 가져오기·사용자 확인·공개는 미완료.** B/SSE 복구는 제외했습니다. 실제 PixAI 생성, 자격 증명 열람, 운영/원격 서버 조작, push/release는 수행하지 않았습니다. 모든 테스트 자료는 합성입니다.
 
 기준은 `main 64a7100`입니다. 이전 중단 변경을 보존하고 설계와 제공된 검토 문서를 전부 읽어 이어 구현했습니다. 기존 Engine node_modules만 사용했고 새 의존성 설치는 없습니다.
 
@@ -45,17 +45,19 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 ## 실제 실행 결과
 
+아래는 2026-10-06 수정 후 직접 재실행 결과입니다. 확장 저장소 루트에서 먼저 `export MARINARA_REPO="$HOME/Marinara-Engine"`를 실행합니다. 실제 검증 Engine checkout은 `/home/syhekate/Marinara-Engine`이며 다른 환경에서는 경로를 바꿔야 합니다. validator에도 아래와 같이 같은 경로 인자를 전달합니다.
+
 | 명령 | 결과 |
 |---|---|
-| `node --test test/*.test.cjs` | 부모 최종 직접 실행 PASS: 71/71, skip 0 |
-| `node --test --test-isolation=none test/*.test.cjs` | 부모 최종 직접 실행 PASS: 71/71, skip 0 |
+| `node --test test/*.test.cjs` | PASS: 82/82, skip 0 |
+| `node --test --test-isolation=none test/*.test.cjs` | PASS: 82/82, skip 0 |
 | `node agent/validate-agent.mjs "$MARINARA_REPO"` | PASS: 실제 import·Zod, agent 1/functions 0, 능력 15개 OFF, persona OFF, prompt 일치 |
 | `node test/storage-export.mjs` | PASS: 실제 Engine 평문 저장/삭제, export에서 합성 키·프로필·ledger 제외 |
 | `node test/browser-test.cjs` | 부모 최종 직접 재실행 PASS: 키 기억/삭제/실패·회귀·외부 전송 0 |
 | `node test/reload-browser.cjs` | 부모 최종 직접 재실행 PASS: ON/OFF·중복 방지·follower·stop |
 | `node test/position-browser.cjs` | 부모 최종 직접 재실행 PASS: desktop 및 390px touch/rotation |
-| `node test/selfie-browser.cjs` | 부모 최종 직접 재실행 PASS: preview·Request·gallery·C3·abort·stop·cleanup |
-| `python3 tools/build.py` | 최종 PASS: 감싼 JS 문법, 소스 37개 ZIP/JSON 원본 바이트 대조 |
+| `node test/selfie-browser.cjs` | PASS: preview·Request·gallery·C3·abort·poll 중 최근 대화 OFF·stop·cleanup |
+| `python3 tools/build.py` | PASS: 감싼 JS 문법·소스 38개 ZIP/JSON 원본 바이트 대조 |
 | `git diff --check` | PASS |
 
 초기 구현 도구는 420초 제한으로 중단돼 변경을 회수해 이어 작업했습니다. 위임 sandbox에서는 Chromium이 `setsockopt: Operation not permitted`로 종료됐지만 부모 환경에서는 실행 가능했습니다. 부모가 모바일 fixture의 다중 paragraph selector 실패를 재현하고 `.pixai-bridge-panel > p:first-of-type`로 좁혔습니다. 독립 리뷰 4건 수정 이후 부모가 브라우저 4개·validator·storage export를 직접 다시 실행해 전부 통과했습니다. 실제 Marinara UI import·실 PixAI 생성 성공을 뜻하지 않습니다.
@@ -88,14 +90,14 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 | 로컬 dist 파일 | SHA-256 |
 |---|---|
-| `marinara-pixai-illustrator-v0.2.0.zip` | `f93b51f246b625af49069bc29f0db1e8fa560fea81bc34ae4ba45790a4ef7254` |
+| `marinara-pixai-illustrator-v0.2.0.zip` | `ae1055468065f89618063935ba827dba9622d0a1936ab23a94a04b03b49e52d5` |
 | `pixai-director.agent.json` | `805bbbddb4ab80eb667451c6fca6301809ddaeef2d8a0c8aa558315972794152` |
 
 `dist/SHA256SUMS`와 함께 로컬 생성했습니다. dist는 gitignore 대상입니다. ZIP에 설계는 포함하고, 해시 자기참조를 피하려고 이 구현 기록은 포함하지 않습니다. 실제 import/배포 승인을 의미하지 않습니다.
 
 ## 남은 사용자 검토 순서 (미실행)
 
-1. 정식 구현 검수를 받습니다. 오프라인 브라우저 4개와 공식 preset 목록 대조는 완료했습니다.
+1. 조건부 검수의 조건 1 회귀 테스트와 새 산출물 해시를 한정 재검수받습니다. 오프라인 브라우저 4개와 공식 preset 목록 대조는 완료했습니다.
 2. 구버전 탭을 닫고 운영 데이터와 분리한 Marinara에 ZIP/agent를 각각 올바른 UI로 가져옵니다. 기존 모델·LoRA·키 기억 정책·위치·ON 보존과 새 opt-in OFF를 확인합니다.
 3. 합성 성인 캐릭터로 프로필·개명·동명이인·이전 ID 복사·무료 preview를 확인합니다. 실제 prompt review kind/optional dimensions와 gallery query 무효화를 확인합니다.
 4. 별도 승인한 모델·비용으로만 셀피 1건을 확인합니다. gallery 유지·메시지 미첨부·재요청 비용·abort 후 gallery·전체 중지 후 ledger를 확인하며 자동 반복 생성하지 않습니다.
@@ -120,6 +122,23 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 
 이 수정 묶음 당시 70/70 PASS였으며 이후 공식 preset fixture를 더해 최종 **71/71 PASS**를 확인했습니다. 새 컨텍스트 재리뷰는 **APPROVED — Scope A**, 핵심 경로 29/29 통과로 반환됐습니다. 이 자체 리뷰는 별도 정식 구현 검수를 대신하지 않습니다.
 
+## 조건부 구현 검수 후 수정 — 2026-10-06
+
+SYHO-88의 조건부 판정 후 필수 수정만 반영했습니다. 위의 C1–C6/R1–R4 표는 **설계 검수** 번호이며 아래는 **구현 검수** 번호입니다.
+
+| 항목 | 반영·검증 |
+|---|---|
+| 조건 1 | 일반 OFF와 명시적 emergency 저장을 분리. stopEpoch는 전체 중지·키 삭제·자동 처리 중지 버튼에서만 증가. 기능 OFF는 create 전을 차단하고 이미 POST를 보낸 작업은 갤러리까지 진행. 프라이버시 옵션은 작업 준비 시 한 번 snapshot하며 follower의 OFF도 다음 작업에 반영 |
+| 조건 2 | CHANGELOG의 Chromium 실패 문장을 과거 sandbox 제약과 실제 부모 환경 통과로 구분. ZIP 재빌드와 아래 SHA-256 갱신 |
+| R2 | Appearance/Description이 자동 삽화 프롬프트에도 추가되어 외부 전송된다는 변경 사실을 CHANGELOG에 명시 |
+| R3 | 모델/LoRA 검증과 비동기 guard를 통과한 **동기 POST 직전 guard**에서만 creating=true. 입력 실패는 failedBeforeCreate, 실제 POST 결과 불명만 ambiguous 유지 |
+| R5 | README·설계·이 문서에 MARINARA_REPO export와 validator 경로 인자 명시 |
+| R1 / R4 | 0.2.1로 이월. follower 409 안내 세분화와 카드 조회 실패 시 선택적 보충 생략은 이번 과금 보존 수정에 섞지 않음. 현재는 기존 보수적 오류 종료를 유지 |
+
+`test/feature-off.test.cjs` 11개는 최근 대화 OFF 중 poll→gallery, persona 다음 snapshot, follower 기능/프라이버시 OFF, 명시 긴급 중지, 모델 검증 실패, 최종 guard 직전 OFF, 삽화/셀피 각각 create 전 차단·create 후 보존을 검사합니다. RED로 일반 OFF의 stopEpoch 증가/유료 작업 중단, create 전 OFF 미차단, 검증 실패의 ambiguous 분류, follower privacy 다음 snapshot 미반영을 관측한 뒤 수정해 GREEN을 확인했습니다. 추가 정상 경로 검사는 RED를 주장하지 않습니다.
+
+`test/selfie-browser.cjs`에는 실제 체크박스 조작으로 최근 대화 ON → 셀피 poll 대기 → 최근 대화 OFF → poll 해제 → ChatImage/gallery/complete 및 stopEpoch 불변을 확인하는 회귀를 추가했습니다. 기존 create mock은 실제 POST 직전 guard를 호출하도록 수정했고, 과거 중지 테스트는 일반 OFF가 아니라 명시 emergency 의도를 전달하도록 변경했습니다. 과금 중단/키 삭제/최종 guard/caller abort 기존 assertion은 유지했습니다.
+
 ## 리비전 이력
 
 | 날짜 | 변경 |
@@ -127,3 +146,4 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 | 2026-10-05 | 중단 작업의 저장 이행 RED/GREEN 기록 시작 |
 | 2026-10-05 | 단계 1–5·7·55개 검증·C/R·브라우저/커밋 차단·해시·사용자 게이트 기록 |
 | 2026-10-05 | 경쟁 수정·71개·브라우저·목록·커밋 검증 |
+| 2026-10-06 | 조건부 검수 수정·82개·새 해시 반영 |

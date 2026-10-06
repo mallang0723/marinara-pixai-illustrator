@@ -65,7 +65,9 @@ PixAI style과 화풍 태그는 독립입니다. style은 `1983308862240288769` 
 
 create 전에 claim/creating을 저장하고 응답 즉시 taskId를 저장합니다. 저장 실패면 생성하지 않습니다. POST 결과 불명은 `ambiguous`로 남기며 원본 셀피 POST나 새 create를 자동 재시도하지 않습니다. 같은 실행 중 chat+character 요청을 공유한 뒤, 다른 같은 채팅 작업에만 409를 적용합니다. 완료 후 재클릭은 새 비용입니다. 진단 2는 생성+다운로드만 하며 갤러리에 올리지 않습니다.
 
-caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않고, 이후에는 호출자를 거절하되 이미 만든 작업을 갤러리까지 계속합니다. **전체 긴급 중지·키 삭제·확장 비활성화**는 후단도 중단하고 미해결 기록을 남깁니다. 다른 탭에서도 중지/OFF/키 삭제가 가능합니다. 같은 origin 중지 알림과 저장 stopEpoch를 확인하지만 이미 서버가 접수한 작업의 취소·환불은 보장하지 않습니다.
+caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않고, 이후에는 호출자를 거절하되 이미 만든 작업을 갤러리까지 계속합니다. **전체 긴급 중지·키 삭제·자동 처리 중지 버튼·확장 비활성화**는 후단도 중단하고 미해결 기록을 남깁니다. 다른 탭에서도 중지/OFF/키 삭제가 가능합니다. 같은 origin 중지 알림과 저장 stopEpoch를 확인하지만 이미 서버가 접수한 작업의 취소·환불은 보장하지 않습니다.
+
+체크박스의 **자동 삽화/셀피 대체 OFF는 위 중지 버튼과 다릅니다**. create 전 작업만 차단하고 이미 과금된 작업은 갤러리까지 보존합니다. 최근 대화/페르소나 OFF는 다음 작업의 자료 수집부터 적용하며 이미 보낸 자료를 철회하지 않습니다. 이 일반 OFF 저장은 stopEpoch를 올리지 않습니다.
 
 미해결 작업은 자동 재개·퇴출하지 않습니다. 같은 채팅/진단 재생성을 막으므로 계정과 갤러리를 확인한 뒤 operation ID로 차단을 명시 해제하세요. 완료 기록은 최대 500건이고 미해결이 한도를 채우면 새 작업을 막습니다. 해제는 과금 취소가 아니며 다음 요청은 새 비용입니다. 업로드 응답 유실도 자동 업로드 재시도를 하지 않습니다.
 
@@ -104,11 +106,12 @@ caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않
 - 자동 삽화는 클라이언트/서버 시계 동기화가 전제이며 활성 채팅을 4초 간격으로 감시합니다. 오래된 run은 재생성하지 않습니다.
 - 서버 idempotency/CAS가 없으므로 다기기 exactly-once 과금·다른 작성자와 attachment 원자 append는 보장하지 않습니다. 대상 swipe가 바뀌면 갤러리만 보존합니다.
 - CDN은 허용 HTTPS 호스트·MIME·20 MiB를 검사하고 redirect를 거부합니다. v1 media fallback은 Origin 정책으로 실패할 수 있습니다.
-- Chromium fixture 4개(기존 UI·reload·desktop/390px touch 위치·셀피 A)와 Node 테스트 71개가 통과했습니다. 별도 컨텍스트 자체 리뷰의 경쟁 조건 4건을 수정하고 재리뷰를 통과했습니다. 실제 Marinara UI import·실 PixAI 생성·정식 구현 검수·사용자 확인은 아직 남아 있습니다. 오프라인 fixture는 실제 생성의 대체 증거가 아닙니다.
+- Chromium fixture 4개(기존 UI·reload·desktop/390px touch 위치·셀피 A)와 Node 테스트 82개가 통과했습니다. 조건부 구현 검수 후 OFF 중 과금 작업 보존과 create 전 검증 순서를 수정했고, 최근 대화 OFF 회귀를 Chromium에서도 확인했습니다. 수정 사항의 한정 재검수·실제 Marinara UI import·실 PixAI 생성·사용자 확인은 남아 있습니다. 오프라인 fixture는 실제 생성의 대체 증거가 아닙니다.
 
-기존 Engine `node_modules`를 재사용하고 설치하지 않습니다:
+기존 Engine `node_modules`를 재사용하고 설치하지 않습니다. 아래 명령은 확장 저장소 루트에서 실행합니다. 예시 Engine 경로가 다르면 첫 줄을 실제 체크아웃으로 바꾸세요:
 
 ```sh
+export MARINARA_REPO="$HOME/Marinara-Engine"
 node --test test/*.test.cjs
 node --test --test-isolation=none test/*.test.cjs
 node agent/validate-agent.mjs "$MARINARA_REPO"
@@ -148,3 +151,4 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-05 | README | 사전 확인 실패 턴 재시도 제한 안내 |
 | 2026-10-05 | README | 0.2.0 로컬 후보 범위·프로필·A/abort·평문 노출·브라우저 미검증 게이트 명시 |
 | 2026-10-05 | README | 브라우저·71개·공식 preset 검증 갱신 |
+| 2026-10-06 | README | 기능 OFF 의미·검증 환경변수 명시 |

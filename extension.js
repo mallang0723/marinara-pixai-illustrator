@@ -213,7 +213,7 @@ function savePosition(value) {
   return write;
 }
 
-async function saveSettings(patch) {
+async function saveSettings(patch, { emergency = false } = {}) {
   const revision = stopRevision;
   const epoch = settings.stopEpoch || 0;
   const write = saveQueue.then(async () => {
@@ -221,8 +221,8 @@ async function saveSettings(patch) {
     const allowed = new Set(["apiKey", "rememberKey", "enabled", "selfieInterceptEnabled", "characterSelfieRecoveryEnabled", "personaAppearanceEnabled", "selfieUseRecentContext", "modelVersionId", "loras", "aspectRatio", "size", "mode", "promptHelper", "negativeDefault", "styleTags", "styleTagsPosition", "pixaiStyle", "processedRunIds"]);
     if (Object.keys(patch).some(k => !allowed.has(k))) throw new Error("설정 소유 키 오류");
     if (!Object.keys(patch).length) return;
-    const emergency = Object.entries(patch).every(([k,v]) => ["enabled", "selfieInterceptEnabled", "characterSelfieRecoveryEnabled", "personaAppearanceEnabled", "selfieUseRecentContext", "rememberKey"].includes(k) ? v === false : k === "apiKey" && v === "");
-    if (!isLeader && !emergency) throw new Error("설정은 실행 탭에서 저장하세요. 긴급 중지·키 삭제는 모든 탭에서 가능합니다.");
+    const offOnly = Object.entries(patch).every(([k,v]) => ["enabled", "selfieInterceptEnabled", "characterSelfieRecoveryEnabled", "personaAppearanceEnabled", "selfieUseRecentContext", "rememberKey"].includes(k) ? v === false : k === "apiKey" && v === "");
+    if (!isLeader && !offOnly) throw new Error("설정은 실행 탭에서 저장하세요. OFF·긴급 중지·키 삭제는 모든 탭에서 가능합니다.");
     await storageLock(async () => {
       const fresh = await marinara.storage.get();
       const owned = { ...patch };
@@ -860,19 +860,28 @@ async function writeReceipt(operation, state, fields = {}) {
   });
 }
 
-async function assertOperation(operation) {
+async function assertOperation(operation, refreshPrivacy = false) {
+  const feature = operation.source === "selfie" ? "selfieInterceptEnabled" : operation.source === "illustration" ? "enabled" : null;
   const checkLocal = () => {
     if (stopped || operation.revision !== stopRevision) throw new DOMException("작업 중지", "AbortError");
     if (storageError || !isLeader || !apiKey) throw Object.assign(new Error("저장소·실행 탭·키 확인 필요"),{status:409});
     if (!operation.creating && operation.signal?.aborted) throw new DOMException("호출 취소", "AbortError");
+    if (!operation.creating && feature && settings[feature] === false) throw new DOMException("기능 OFF — 새 생성 중지", "AbortError");
   };
   checkLocal();
   const fresh = await marinara.storage.get();
   checkLocal();
   validateStorage(fresh);
+  if (!operation.creating && feature && fresh[feature] === false) throw new DOMException("기능 OFF — 새 생성 중지", "AbortError");
   if (fresh.schemaVersion !== 2) throw new Error("저장소 버전 충돌 — 구버전 탭을 닫으세요.");
   if (!operation.receipted && fresh.operationLedger?.some(r=>r.operationId === operation.operationId)) throw new Error("이미 기록된 작업 — 재생성하지 않습니다.");
   if ((fresh.stopEpoch || 0) !== operation.epoch) throw new DOMException("다른 탭에서 중지했습니다.", "AbortError");
+  if (refreshPrivacy) {
+    // Another tab may have opted out. Freeze privacy choices before preparing this job only.
+    for (const key of ["selfieUseRecentContext", "personaAppearanceEnabled"]) {
+      if (typeof fresh[key] === "boolean") operation.options[key] = fresh[key];
+    }
+  }
   return checkLocal;
 }
 
@@ -899,7 +908,7 @@ async function executeOperation(operation) {
   const receipt = async (next, fields) => { await writeReceipt(operation,next,fields); state = next; operation.receipted = true; };
   try {
     await saveQueue;
-    await assertOperation(operation);
+    await assertOperation(operation, true);
     const composed = await operation.prepare(operation.options);
     await assertOperation(operation);
     if (operation.confirm && !operation.confirm()) throw new DOMException("비용 확인 취소","AbortError");
@@ -908,7 +917,6 @@ async function executeOperation(operation) {
     await assertOperation(operation);
     await receipt("creating");
     await assertOperation(operation);
-    operation.creating = true;
     const task = await pixaiCreateTask(composed.prompt,composed.negative,operation.ratio,operation.options,composed,async()=>{
       try {
         const checkLocal = await assertOperation(operation);
@@ -916,6 +924,8 @@ async function executeOperation(operation) {
           try {
             checkLocal();
             if (operation.signal?.aborted) throw new DOMException("호출 취소","AbortError");
+            // Validation and all async guards finished; the next statement dispatches POST.
+            operation.creating = true;
           } catch(error) { operation.creating=false; throw error; }
         };
       }
@@ -1333,10 +1343,10 @@ q(".pb-clear").addEventListener("click", async () => {
   q(".pb-enabled").checked = false;
   armedAt = Date.now();
   renderStatus();
-  try { await saveSettings({ enabled: false }); }
+  try { await saveSettings({ enabled: false }, { emergency: true }); }
   catch { recordStage("settings", false, "중지는 적용됐지만 설정 저장 실패 — 새로고침 뒤 확인하세요."); return; }
   finally { renderStatus(); }
-  recordStage("settings", true, "자동 처리 중지; 과거 run은 재생성하지 않습니다. 진행 중 1건은 비활성화/새로고침으로 중지하세요.");
+  recordStage("settings", true, "자동 처리 중지 — 진행 중 작업도 다음 경계에서 중단됩니다. 접수된 과금은 취소되지 않으니 영수증을 확인하세요.");
   renderStatus();
 });
 
@@ -1413,7 +1423,7 @@ async function emergencyStop(deleteKey = false) {
   const patch = {enabled:false,selfieInterceptEnabled:false,characterSelfieRecoveryEnabled:false};
   if (deleteKey) { patch.apiKey="";patch.rememberKey=false;apiKey="";settings.apiKey="";q(".pb-key").value="";q(".pb-remember").checked=false; }
   stopChannel?.postMessage({type:"stop",deleteKey});
-  try { await saveSettings(patch);recordStage("stop",true,"전체 중지됨 — 접수된 과금은 취소되지 않습니다. 미해결 작업 기록을 확인하세요."); }
+  try { await saveSettings(patch, { emergency: true });recordStage("stop",true,"전체 중지됨 — 접수된 과금은 취소되지 않습니다. 미해결 작업 기록을 확인하세요."); }
   catch {recordStage("stop",false,"현재 탭 중지됨 / 서버 저장 실패 — 다른 탭을 닫고 저장 상태를 확인하세요.");}
   renderStatus();
 }

@@ -30,9 +30,20 @@ const source=fs.readFileSync(path.join(__dirname,'../extension.js'),'utf8');
  await page.waitForFunction(()=>window.calls.filter(c=>c.url.endsWith('/v2/image/create')).length===2);
  await page.evaluate(()=>{window.abortControl.abort();window.releaseCreate();});assert.equal(await page.evaluate(()=>window.caller),true);
  await page.waitForFunction(()=>window.saved.operationLedger.filter(r=>r.state==='complete').length===2);
+ // Review C1: a privacy checkbox OFF while a paid selfie polls must not discard it.
+ await page.check('.pb-recent');await page.waitForFunction(()=>window.saved.selfieUseRecentContext===true);
+ const epoch=await page.evaluate(()=>window.saved.stopEpoch);
+ await page.evaluate(()=>{window.pollGate=new Promise(r=>window.releasePoll=r);window.paidSelfie=fetch('/api/gallery/chat/selfie',{method:'POST',body:'{"characterId":"char"}'}).then(r=>r.json());});
+ await page.waitForFunction(()=>window.calls.filter(c=>c.url.endsWith('/v2/task/task')).length===3);
+ await page.uncheck('.pb-recent');await page.waitForFunction(()=>window.saved.selfieUseRecentContext===false);
+ await page.evaluate(()=>window.releasePoll());
+ assert.equal((await page.evaluate(()=>window.paidSelfie)).id,'gallery');
+ assert.equal(await page.evaluate(()=>window.saved.stopEpoch),epoch);
+ assert.equal(await page.evaluate(()=>window.saved.operationLedger.filter(r=>r.state==='complete').length),3);
+ assert.equal(await page.evaluate(()=>window.calls.filter(c=>c.url.endsWith('/upload')).length),3);
  await page.click('.pb-stop');await page.waitForFunction(()=>window.saved.selfieInterceptEnabled===false);
  assert.equal(await page.evaluate(async()=> (await (await fetch('/api/gallery/chat/selfie',{method:'POST',body:'{"characterId":"char"}'})).json()).original),true);
  await page.evaluate(()=>{window.cleanup();window.cleanup();});assert.equal(await page.evaluate(()=>window.fetch===window.original),true);assert.deepEqual(errors,[]);
- console.log('PASS offline selfie browser: profiles/free preview/Request override/gallery/C3/abort/stop/cleanup');
+ console.log('PASS offline selfie browser: profiles/free preview/Request override/gallery/C3/abort/privacy OFF during poll/stop/cleanup');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

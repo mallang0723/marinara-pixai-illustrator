@@ -364,6 +364,7 @@ R2: 같은 chatId+characterId 실행 중 요청의 promise 공유를 먼저 검�
 로컬 검증 명령(실행 결과·환경 제한은 구현 기록):
 
 ```sh
+export MARINARA_REPO="$HOME/Marinara-Engine" # 기존 Engine checkout 경로로 변경
 node --test test/*.test.cjs
 node agent/validate-agent.mjs "$MARINARA_REPO"
 node test/browser-test.cjs
@@ -374,7 +375,7 @@ node test/storage-export.mjs
 python3 tools/build.py
 ```
 
-브라우저 스크립트에 필요한 `MARINARA_REPO`는 기존 의존성이 있는 Engine checkout으로 지정한다. 서버 데이터나 credentials를 읽지 않는다. 이번 환경에서 Chromium 실행은 차단되었으므로 브라우저 통과를 주장하지 않는다.
+브라우저 스크립트에 필요한 `MARINARA_REPO`는 기존 의존성이 있는 Engine checkout으로 지정한다. 서버 데이터나 credentials를 읽지 않는다. 초기 위임 sandbox에서는 Chromium 실행이 차단됐으나 부모 환경에서 fixture 4종 통과를 확인했다. 최신 결과·해시·조건부 검수 후 수정은 `IMPLEMENTATION-0.2.0.md`를 기준으로 한다.
 
 ### 실제 Marinara 가져오기
 
@@ -413,3 +414,4 @@ python3 tools/build.py
 
 | 2026-10-05 | SYHO-87: 단계 1–5·7 승인, B/C1/C2/B-C6 보류 및 C3–C5/R1–R4 확정 |
 | 2026-10-05 | 단계 1–5·7 로컬 후보 상태·브라우저 차단·공식 enum 미확인·사용자 체크리스트 미실행 명시 |
+| 2026-10-06 | 검증 명령·현재 결과 참조 정정 |

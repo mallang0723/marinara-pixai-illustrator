@@ -39,7 +39,7 @@ for (const position of [{ button: { x: 30, y: 40 } }, null]) {
       { ...values, settings: structuredClone(stored), saveQueue: Promise.resolve() });
     const move = a.savePosition(position);
     await read.promise;
-    const stop = b.saveSettings({ enabled: false, selfieInterceptEnabled: false });
+    const stop = b.saveSettings({ enabled: false, selfieInterceptEnabled: false }, { emergency: true });
     const ledger = b.writeReceipt({ operationId: 'work', source: 'selfie', anchor: { chatId: 'chat', characterId: 'char' } }, 'creating');
     await tick();
     const overlappingReads = reads;
@@ -105,9 +105,10 @@ for (const change of ['stop', 'key', 'leadership', 'abort', 'cleanup']) {
 test('stop in the final guard continuation is checked synchronously at dispatch', async () => {
   const { c, calls, spec } = pipeline();
   const original = c.assertOperation;
+  let guards = 0;
   c.assertOperation = async operation => {
     const check = await original(operation);
-    if (operation.creating) queueMicrotask(() => c.stopLocalWork());
+    if (++guards === 5) queueMicrotask(() => c.stopLocalWork());
     return check;
   };
   const result = await Promise.allSettled([c.coordinate(spec)]);
