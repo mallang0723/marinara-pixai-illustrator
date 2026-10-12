@@ -94,6 +94,8 @@ RED는 실제 실행한 실패, GREEN은 assertion을 유지한 재실행입니�
 | `marinara-pixai-illustrator-v0.2.0.zip` | `0bc74556a1d63c576822f3452221f22ab1df733c707568673aef851c4d5e9233` |
 | `pixai-director.agent.json` | `805bbbddb4ab80eb667451c6fca6301809ddaeef2d8a0c8aa558315972794152` |
 
+공개 릴리스 ZIP(`12f9f343c5c59875c003faeb73219a6089f35acebaac8a66c4246016bafbf3b0`)은 위 검수 후보에서 README 상태 문구와 CHANGELOG 제목만 바꿔 재빌드한 것입니다. 나머지 파일은 바이트 단위로 같습니다.
+
 `dist/SHA256SUMS`와 함께 로컬 생성했습니다. dist는 gitignore 대상입니다. ZIP에 설계는 포함하고, 해시 자기참조를 피하려고 이 구현 기록은 포함하지 않습니다. 실제 import/배포 승인을 의미하지 않습니다.
 
 ## 남은 사용자 검토 순서 (미실행)

@@ -1,6 +1,6 @@
 # PixAI Illustrator Bridge 0.2.0
 
-**로컬 검토 후보입니다. 공개·실제 가져오기·실생성·독립 검수·사용자 확인은 대기 중입니다.** 기존 0.1.x의 실사용 보고는 이 버전의 검증 결과가 아닙니다. 상세 결과는 [구현 기록](./docs/IMPLEMENTATION-0.2.0.md), 계약은 [설계](./docs/DESIGN-0.2.0.md)를 보세요.
+**Pre-release입니다.** 독립 검수는 통과했지만, 실제 PixAI 생성은 실사용 피드백으로 확인 중입니다. 안정판이 필요하면 0.1.4를 쓰세요. 상세 결과는 [구현 기록](./docs/IMPLEMENTATION-0.2.0.md), 계약은 [설계](./docs/DESIGN-0.2.0.md)를 보세요.
 
 | 파일 | 가져오는 곳 |
 |---|---|
@@ -159,3 +159,4 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-06 | README | 기능 OFF 의미·검증 환경변수 명시 |
 | 2026-10-06 | README | 진단 오류·캐시 재시도·검증 한계 정리 |
 | 2026-10-06 | README | HTTP 도달성·인증 차단 판정 정정 |
+| 2026-10-12 | README | 0.2.0 Pre-release 공개 상태로 정정 |
