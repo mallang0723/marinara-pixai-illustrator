@@ -24,6 +24,8 @@ Web Locks를 제공하는 localhost/HTTPS 브라우저 한 프로필·한 출처
 
 ## 설치와 첫 확인
 
+버튼별 설정·스크린샷·문제 해결은 **[한국어 사용 설명서](./docs/MANUAL.ko.md)**를 보세요. 자동 처리는 **체크 + 저장**해야 켜지며, 자동 삽화는 **비용 확인창 없이** 크레딧을 사용합니다.
+
 ### GitHub 주소로 설치·업데이트
 
 커뮤니티의 **GitHub 확장 관리자 1.0.1**을 별도로 가져오고 코드를 검토·승인한 경우 다음 방법을 사용할 수 있습니다. 이 관리자는 제3자 확장이며, 이 저장소에 포함되거나 자동 설치되지 않습니다. 관리자와 PixAI 확장 모두 `full_page_access`를 사용합니다.
@@ -64,7 +66,7 @@ PixAI style과 화풍 태그는 독립입니다. style은 `1983308862240288769` 
 
 페르소나는 **확장 외모 옵션 ON + 새 Director의 `PIXAI_PERSONA:true`**일 때만 읽습니다. 현재 채팅의 persona ID만 사용하며 solo 셀피에는 추가하지 않습니다. Agents의 `contextSources.persona`는 별도 옵션이고 동봉 JSON의 기본값은 false입니다. Director에서 ON이면 전체 페르소나 컨텍스트가 선택한 LLM에 전송될 수 있습니다. 확장 OFF는 그 전송을 철회하거나 이미 작성된 prompt의 묘사를 삭제하지 않습니다.
 
-최근 대화 옵션은 별도 opt-in입니다. 요청 시작까지의 숨기지 않은 user/assistant 최근 4개에서 각 최대 200자를 **원문**으로 PixAI에 보냅니다. 미리보기로 확인하세요. 카드·대화 자료는 HTML로 실행하거나 URL로 fetch하지 않습니다.
+최근 메시지 조회는 별도 opt-in입니다. ON이면 요청 시작까지의 숨기지 않은 user/assistant 최근 4개에서 각 최대 200자를 **원문**으로 PixAI에 보냅니다. **단, 0.2.0은 옵션 OFF여도 Marinara 셀피 요청의 `context`를 최대 200자 프롬프트에 포함합니다**(예산이 있으면 원문 전송). 무과금 preview QA로 재현했으며 0.2.1 수정 후보입니다. 미리보기로 확인하세요. 카드·대화 자료는 HTML로 실행하거나 URL로 fetch하지 않습니다.
 
 ## 모델과 비용
 
@@ -178,3 +180,4 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-12 | README | 0.2.0 Pre-release 공개 상태로 정정 |
 | 2026-10-14 | README·manifest | GitHub 설치·선택·업데이트 안내 |
 | 2026-10-14 | README·manifest | 실기기 보고·승격 준비 문구 반영 |
+| 2026-10-14 | README·사용 설명서 | 화면 안내·과금·context 예외 명시 |
