@@ -4,7 +4,7 @@
   "config": {
     "name": "PixAI Illustrator Bridge",
     "version": "0.2.0",
-    "description": "로컬 검토 후보: PixAI 삽화·Conversation 셀피 대체, ID별 외모·화풍과 과금 영수증. 전체 페이지 접근·크레딧 필요. 실제 가져오기 검증 대기.",
+    "description": "PixAI 삽화·Conversation 셀피 대체, ID별 외모·화풍과 과금 영수증을 지원합니다. 전체 페이지 접근과 PixAI API 키·크레딧이 필요합니다. 진단 생성·다운로드의 실기기 성공 보고가 있으며, 갤러리 저장·새로고침 유지와 셀피/자동 삽화 실기기는 아직 미확인입니다.",
     "runtime": "client",
     "capabilities": [
       "full_page_access"

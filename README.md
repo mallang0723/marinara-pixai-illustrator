@@ -1,6 +1,6 @@
 # PixAI Illustrator Bridge 0.2.0
 
-**Pre-release입니다.** 독립 검수는 통과했지만, 실제 PixAI 생성은 실사용 피드백으로 확인 중입니다. 안정판이 필요하면 0.1.4를 쓰세요. 상세 결과는 [구현 기록](./docs/IMPLEMENTATION-0.2.0.md), 계약은 [설계](./docs/DESIGN-0.2.0.md)를 보세요.
+**0.2.0 진단 경로의 실기기 생성·다운로드 성공이 보고됐습니다.** 독립 검수는 통과했으며, 갤러리 저장·새로고침 유지와 셀피/자동 삽화 경로의 실기기 확인은 남아 있습니다. 진단 성공이 모든 사용 경로의 성공을 보장하지는 않습니다. 상세 결과는 [구현 기록](./docs/IMPLEMENTATION-0.2.0.md), 계약은 [설계](./docs/DESIGN-0.2.0.md)를 보세요.
 
 | 파일 | 가져오는 곳 |
 |---|---|
@@ -23,6 +23,21 @@
 Web Locks를 제공하는 localhost/HTTPS 브라우저 한 프로필·한 출처에서 사용하세요. 다른 기기/브라우저/포트의 동시 실행은 지원하지 않습니다. 0.1.x 탭은 모두 닫으세요. 구버전은 버전 신호를 보내지 않고 전체 설정을 다시 쓰므로 완전한 혼용 감지는 불가능합니다. schema 변경이 보이면 중지·경고하지만 같은 schema가 유지된 구버전 쓰기까지 탐지하지는 못합니다.
 
 ## 설치와 첫 확인
+
+### GitHub 주소로 설치·업데이트
+
+커뮤니티의 **GitHub 확장 관리자 1.0.1**을 별도로 가져오고 코드를 검토·승인한 경우 다음 방법을 사용할 수 있습니다. 이 관리자는 제3자 확장이며, 이 저장소에 포함되거나 자동 설치되지 않습니다. 관리자와 PixAI 확장 모두 `full_page_access`를 사용합니다.
+
+1. Settings › Addons › External Extensions의 **GitHub 확장 관리**를 열고 `https://github.com/mallang0723/marinara-pixai-illustrator`를 입력해 **패키지 찾기**를 누릅니다.
+2. **설치 대상 선택을 반드시 확인하세요.** 1.0.1은 최신 정식 Release ZIP을 첫 선택지로 표시하고, `manifest.json`은 기본 브랜치 `main`의 코드를 가져옵니다. 2026-10-14 검증 당시에는 정식 Release가 `v0.1.4 / marinara-pixai-illustrator-v0.1.4.zip`, main은 0.2.0 Pre-release였습니다. 0.2.0이 정식 Release로 승격되면 첫 선택지도 0.2.0 ZIP으로 바뀝니다. 주소 입력 자체가 항상 main이나 항상 최신 버전을 설치한다는 뜻은 아닙니다.
+3. **내용 확인**에서 버전·권한·코드를 검토한 뒤 설치합니다. 새 코드는 **비활성**으로 저장됩니다. Marinara 기본 External Extensions 화면에서 정확한 코드 해시를 승인하고 새로고침한 뒤 🎨 패널을 확인하세요. 키 입력·유료 생성은 설치 확인과 별개입니다.
+4. 기존 ZIP 설치본이 있으면 새로 설치하지 말고 같은 이름의 **PixAI Illustrator Bridge** 항목에서 **GitHub 주소 연결** → 패키지 선택 → **이 저장소 연결**을 사용합니다. 연결만으로 기존 코드는 바뀌지 않습니다. 이후 **업데이트 확인** → **업데이트 보기** → **업데이트 설치**를 사용하세요.
+
+업데이트는 선택한 배포 경로를 따라가며, JS·CSS·권한의 변경으로 판정합니다. 버전·설명·README만 바뀌면 업데이트가 아닙니다. 이름 또는 runtime이 달라진 패키지는 자동 교체하지 않습니다. 업데이트 후 같은 확장 ID와 저장 설정을 유지하지만 다시 비활성화되므로 새 해시 승인과 새로고침이 필요합니다. 과금 중에는 업데이트하지 말고 먼저 작업 영수증을 확인하세요.
+
+**1.0.1 제한:** Release ZIP 연결은 파일명을 저장합니다. 다음 정식 Release의 ZIP 이름에 새 버전이 들어가면 기존 경로가 없어져 확인을 건너뛸 수 있습니다. 그때 **주소 변경**으로 새 Release ZIP을 다시 선택하세요. 루트 `manifest.json` 연결은 이 파일명 문제 없이 main을 따라가지만, main에 Pre-release 코드가 있으면 그것도 가져오므로 버전을 확인하세요. 저장소 `dist/`의 일반 `.zip`은 이 관리자의 소스 ZIP 검색 조건(`.personal-extension.zip`)에 해당하지 않으며, 검증 당시 선택지에는 나타나지 않았습니다.
+
+### ZIP으로 설치
 
 1. 모든 이전 확장 탭을 닫고, 로컬 후보 파일의 `SHA256SUMS`를 확인합니다. 소스·해시와 `full_page_access` 권한을 검토하세요.
 2. Marinara의 외부 확장 허용 설정과 Danger Zone › Allow third-party extension imports를 확인하고 ZIP을 가져옵니다. 기존 서버 설정을 이 확장이 수정하지는 않습니다.
@@ -110,7 +125,8 @@ caller abort는 결제 취소가 아닙니다. create 전에는 생성하지 않
 - 자동 삽화는 클라이언트/서버 시계 동기화가 전제이며 활성 채팅을 4초 간격으로 감시합니다. 오래된 run은 재생성하지 않습니다.
 - 서버 idempotency/CAS가 없으므로 다기기 exactly-once 과금·다른 작성자와 attachment 원자 append는 보장하지 않습니다. 대상 swipe가 바뀌면 갤러리만 보존합니다.
 - CDN은 허용 HTTPS 호스트·MIME·20 MiB를 검사하고 redirect를 거부합니다. v1 media fallback은 Origin 정책으로 실패할 수 있습니다.
-- Chromium fixture 5개(기존 UI·reload·desktop/390px touch 위치·셀피 A·진단)와 Node 테스트 106개가 통과했습니다. OFF 중 과금 작업 보존·안전한 오류 표시·캐시 무효화를 유지하고, preflight HTTP 판정표를 정정했습니다. iPhone Safari/Tailscale HTTPS의 실제 실패 상태는 아직 확인하지 못했으며, 합성 Chromium 검증은 해당 환경이나 실 생성 성공을 증명하지 않습니다. 새 후보의 한정 재검수·사용자 실기 확인은 남아 있습니다.
+- Chromium fixture 5개(기존 UI·reload·desktop/390px touch 위치·셀피 A·진단)와 Node 테스트 106개가 통과했습니다. OFF 중 과금 작업 보존·안전한 오류 표시·캐시 무효화를 유지하고, preflight HTTP 판정표를 정정했습니다. 합성 Chromium 검증은 실기기나 실생성 성공을 증명하지 않습니다.
+- **사용자 실기기 보고(2026-10-14, 릴리스 v0.2.0 ZIP, iPhone·AWS Marinara):** 유효 키로 task 0을 조회한 진단 1의 preflight/diag.task GET은 HTTP 400이었고 CORS 접근 통과·생성 허용으로 처리됐습니다. 진단 2는 create POST 접수 → 약 10초 뒤 task completed → 833,528 bytes `image/webp` 다운로드에 성공했습니다. 이 결과는 사용자 보고이며 유지관리자가 해당 기기에서 재실행한 결과는 아닙니다. 갤러리 저장·새로고침 유지 및 셀피/자동 삽화 경로는 아직 미확인입니다. Tailscale HTTPS 환경의 실제 실패 상태도 별도 미확인입니다.
 
 기존 Engine `node_modules`를 재사용하고 설치하지 않습니다. 아래 명령은 확장 저장소 루트에서 실행합니다. 예시 Engine 경로가 다르면 첫 줄을 실제 체크아웃으로 바꾸세요:
 
@@ -160,3 +176,5 @@ GNU Affero General Public License v3.0. [LICENSE](./LICENSE), [제3자 고지](.
 | 2026-10-06 | README | 진단 오류·캐시 재시도·검증 한계 정리 |
 | 2026-10-06 | README | HTTP 도달성·인증 차단 판정 정정 |
 | 2026-10-12 | README | 0.2.0 Pre-release 공개 상태로 정정 |
+| 2026-10-14 | README·manifest | GitHub 설치·선택·업데이트 안내 |
+| 2026-10-14 | README·manifest | 실기기 보고·승격 준비 문구 반영 |
